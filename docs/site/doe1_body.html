@@ -1,0 +1,155 @@
+<title>DOE_1 Charge-Aware MLIP Assessment</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+__STYLE__
+<style>
+.verdict{display:grid;gap:10px;background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:6px;padding:16px 18px}
+.verdict p{max-width:none}
+.src{font-size:12.5px;color:var(--muted)}
+td ul{padding-left:16px}
+</style>
+
+<div class="wrap">
+<header>
+  <div class="eyebrow">DOE_1 · methodological assessment and pilot design · 11 Oct 2026</div>
+  <h1>Charge-Aware MLIPs for Surface Iodine Chemistry</h1>
+  <p class="lede">Can a charge-conditioned, multifidelity MLIP help explain why illuminated FAPbI3 surfaces retain or lose iodine, in a way conventional DFT and existing MLIPs cannot do efficiently? Short answer: for one piece of the problem, yes. It does not answer the whole question.</p>
+</header>
+
+<section aria-labelledby="v">
+  <h2 id="v">Recommendation</h2>
+  <div class="verdict">
+    <p><span class="pill warn">CONDITIONAL GO, after the proposal</span></p>
+    <p><b>Mention it in DOE_1 as a gated methods capability, not as a central claim.</b> Before submission, run one zero-HPC feasibility step: inspect the published code and data, which needs your OK for a 102 MB download. Authorise the full pilot only if a small electronic sanity check passes. That check asks whether hybrid+SOC DFT localises the hole on a surface I–I species in our slab model, and whether the charge states give genuinely different relaxed structures.</p>
+    <p>The method directly addresses the thermal sampling of charged surface iodine configurations. That supports the 25–55 °C prediction and the identity of the iodine species. It does not model photoexcitation, carrier capture, recombination, or the atmosphere. The existing DFT/NAMD workflow still has to cover those.</p>
+  </div>
+</section>
+
+<section aria-labelledby="t1">
+  <h2 id="t1">1. What the paper actually does</h2>
+  <p class="src">Wang, Mosquera-Lois and Walsh, PRX Energy 5, 043001 (2026), doi:10.1103/tzwd-cl3y. Read from the arXiv version (2603.05238v1); the journal version was not opened. The Zenodo record 10.5281/zenodo.22756145 was inspected from its metadata only. Numbers below come from the preprint and should be checked against the PRX PDF before they go into the proposal.</p>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Question</th><th>Finding</th><th>Status</th></tr></thead>
+    <tbody>
+      <tr><td>How charge enters MACE</td><td>Total cell charge q is mapped to a learnable vector and added to the species embedding at layer 0 only. Message passing then makes the interaction energy depend on q. A separate readout from the charge-enriched initial embedding gives a geometry-independent energy, E_emb(q). E = Σ E_ref(Z) + E_inter + E_emb. There is no explicit long-range electrostatics. Built on MACE 0.3.14 with modifications.</td><td><span class="pill ok">read</span></td></tr>
+      <tr><td>How PBE and HSE06 are combined</td><td>Joint training of one shared representation with separate PBE and HSE06 readout heads (multi-head). It is not pretrain-then-fine-tune. In effect the HSE head learns the functional difference on PBE-sampled structures. Loss weights were not found.</td><td><span class="pill warn">weights unverified</span></td></tr>
+      <tr><td>High-fidelity selection</td><td>About 10% of configurations get HSE06 labels, chosen by stratified sampling. The authors claim roughly three orders of magnitude lower cost for exploring the energy surface. A curve of accuracy against HSE fraction was not found in the main text.</td><td><span class="pill warn">partly unverified</span></td></tr>
+      <tr><td>Reproducibility</td><td>Zenodo holds one archive, data.zip (~102 MB), with datasets, trained models and training scripts. No public repository, fork or commit is cited. Whether the modified MACE source is inside the archive is unknown. Stock MACE does not include the charge embedding.</td><td><span class="pill bad">code unconfirmed</span></td></tr>
+      <tr><td>References, levels, finite size</td><td>Material is Sb2Se3 bulk: a 59-atom supercell for V_Se in 5 charge states, and V_Sb for a foundation-model benchmark. The model learns raw fixed-supercell energies. Transition levels match HSE06 within about 0.01–0.02 eV and ground states within 0.05 Å. No finite-size correction scheme was found in the text. Any eFNV-type correction would sit outside the model.</td><td><span class="pill warn">corrections unverified</span></td></tr>
+    </tbody></table></div>
+  <p>The closer precedent is Mosquera-Lois and Walsh, arXiv:2508.14513 (2025), on V_Cl in CsPbCl3:</p>
+  <ul>
+    <li><b>Method:</b> multi-head MACE with PBE and HSE+SOC heads (α = 0.375, tuned to the 300 K gap), but with <b>separate models per charge state</b> rather than a charge embedding. MD in 160–640-atom cells. A Kumagai–Oba correction is applied after the fact.</li>
+    <li><b>Finding:</b> the optical level fluctuates by more than 1 eV at 300 K, while the thermodynamic (+1/0) level stays within about 0.1 eV of its static value.</li>
+    <li><b>Relevance:</b> this is the right template for halide perovskites, because it uses SOC and finite temperature. It has no iodide, no surface and no organic cation.</li>
+  </ul>
+  <p class="note">The Sb2Se3 errors (RMSE about 0.5 meV/atom and 20 meV/Å) and the claimed savings should not be carried over to FAPbI3 surfaces. SOC, organic cations, dispersion and slab electrostatics are all absent from that benchmark.</p>
+</section>
+
+<section aria-labelledby="t2">
+  <h2 id="t2">2. What transfers to surface iodine chemistry</h2>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Problem</th><th>Does a charge-conditioned PES capture it?</th><th>What still has to handle it</th></tr></thead>
+    <tbody>
+      <tr><td><b>A. Fixed-charge defect dynamics</b><br>V_I, I_i, I–I dimers, migration, desorption barriers per charge state</td><td><span class="pill ok">yes, the direct use</span> Thermal sampling and barriers at hybrid+SOC quality become affordable. Dynamic and thermodynamic levels at 298–328 K become reachable, as in the CsPbCl3 work.</td><td>Charged-slab electrostatics stay outside the model and need to be validated separately.</td></tr>
+      <tr><td><b>B. Oxidation and charge redistribution</b><br>hole localisation on I2⁻, I3⁻ formation</td><td><span class="pill warn">only if verified</span> The global q fixes the electron count, not where the hole sits. At fixed q the hole can sit on an I2⁻ dimer, on a surface Pb–I site, or delocalise in the VBM, and these are different electronic minima. The model only learns whichever minimum the reference DFT finds. Semilocal and r2SCAN labels tend to delocalise holes through self-interaction error. The low-fidelity energy surface may therefore differ qualitatively from HSE+SOC, which breaks the assumption behind Δ-learning. Formal iodine oxidation, as in I_i⁰ = I_i⁻ + h⁺ on an I–I bond, can also occur in a <i>neutral</i> cell. No global charge is needed for that.</td><td>Hybrid+SOC reference calculations, with spin density or IPR used to label each configuration's hole location.</td></tr>
+      <tr><td><b>C. Photochemical dynamics</b><br>photoexcitation, capture, recombination, exchange with carrier reservoirs</td><td><span class="pill bad">no</span> A fixed-q ground-state energy surface has no excited states, no nonadiabatic coupling, and no way to change q during a trajectory.</td><td>Existing NAMD (NAC + DISH/FSSH). Carrier populations against light intensity come from a separate kinetic or quasi-Fermi-level model. The MLIP can supply cheaper nuclear trajectories for NAMD, but NACs still need per-frame electronic structure or a separately validated electronic surrogate.</td></tr>
+    </tbody></table></div>
+</section>
+
+<section aria-labelledby="inv">
+  <h2 id="inv">3. What we already have</h2>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Data</th><th>What it contains</th><th>Usable for the pilot?</th></tr></thead>
+    <tbody>
+      <tr><td>r2SCAN+D3(BJ) PbI2-rich slab, 567 atoms<br><span class="mono">VASP/SCAN/PbI2_Surf_335_SCAN</span></td><td>I_Int, I2_Int, I3_Int, I_Vac and Schottky pairs at q = −1/0/+1 via NELECT. Energies only; no OUTCAR or CHGCAR.</td><td><span class="pill warn">as starting motifs</span> Every charged run used ISPIN=1, including odd-electron cells, so hole localisation was suppressed. No SOC, no dipole correction, and ISIF=4 under a neutralising background. Many runs hit NSW=99. Not usable as labels.</td></tr>
+      <tr><td>r2SCAN FAI-rich slab, 513 atoms</td><td>The same defect families.</td><td><span class="pill bad">re-check</span> Many runs show only 3 ionic steps, likely restart fragments, so their convergence status is unknown.</td></tr>
+      <tr><td>PBE AIMD, 001 slabs (Project 9)<br><span class="mono">VASP/2024/VASP_MD/*PbI2_Surf*</span></td><td>About 3400-frame NVT trajectories at 300 K. PBE, 400 eV, no vdW.</td><td><span class="pill ok">as unlabelled structures</span> A different profile, so they cannot serve as labels.</td></tr>
+      <tr><td>NAMD with an iodine interstitial<br><span class="mono">Project9 …/FAPI_001_DISORD_IInt_D3</span></td><td>1999 frames, EIGTXT, NATXT, bands 733/734, fitted lifetime 23 ns.</td><td><span class="pill ok">for problem C</span> Serves as the baseline for any MLIP-driven trajectory comparison.</td></tr>
+      <tr><td>Hybrid or SOC calculations on these surfaces</td><td>None found.</td><td><span class="pill bad">missing</span> This is the main gap.</td></tr>
+    </tbody></table></div>
+</section>
+
+<section aria-labelledby="t3">
+  <h2 id="t3">4. Minimal pilot (prepared, not launched)</h2>
+  <div class="grid2">
+    <div class="card"><h3>Motif and model</h3><ul>
+      <li><b>Motif:</b> surface iodine interstitial on PbI2-rich FAPbI3(100). This is chosen because I_i ↔ I–I dimer ↔ I2 is the path that separates iodine retention from release.</li>
+      <li><b>Configurations</b> (to be verified):
+        <ul>
+          <li>a bridging I_i;</li>
+          <li>a surface I–I dimer, the I2⁻ candidate;</li>
+          <li>an I3⁻-like trimer;</li>
+          <li>an I2 molecule adsorbed or desorbed as the release endpoint.</li>
+        </ul></li>
+      <li><b>Charge states:</b> q = −1, 0, +1, kept only where the reference geometries and spin densities actually differ.</li>
+      <li><b>Slab:</b> reduced symmetric slab, 2×2 in-plane (about 12.7 Å), 5 layers (PbI2/FAI/PbI2/FAI/PbI2), roughly 150–180 atoms. Starting motifs are transplanted from the archived r2SCAN 567-atom structures.</li>
+      <li><b>Control:</b> a 2×2×2 bulk cell (96 atoms) to calibrate finite-size corrections.</li>
+    </ul></div>
+    <div class="card"><h3>Electronic settings</h3><ul>
+      <li><b>Low fidelity:</b> r2SCAN+D3(BJ), our tool profile, with ISPIN=2, ISIF=2, fixed cell, LDIPOL, 520 eV, Γ plus a k-convergence test.</li>
+      <li><b>High fidelity:</b> HSE(α)+SOC single points, with α tuned to the FAPbI3 gap and D3(BJ) kept identical across heads.</li>
+      <li><b>Spin check:</b> an SOC and spin-polarisation check on every odd-electron configuration.</li>
+      <li><b>Electrostatics:</b> charged slabs use a fixed vacuum. Test 25, 35 and 45 Å, and use a slab-specific correction (Freysoldt–Neugebauer type), not a bulk eFNV correction. Defects go on both faces symmetrically, or a dipole correction is applied.</li>
+      <li><b>Localisation check:</b> before any label is trusted, check hole localisation with spin density and IPR, and check that the SCF lands on the same electronic state when started from different guesses.</li>
+    </ul></div>
+  </div>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Step</th><th>Content</th><th>Rough cost</th></tr></thead>
+    <tbody>
+      <tr><td>0. Sanity gate</td><td>About 6 structures (dimer and bridging I_i at q = 0 and +1, plus 2 bulk). Runs r2SCAN spin-polarised and HSE+SOC single points. Go only if the hole localises in HSE+SOC and the relaxed q-states differ by more than 0.05 Å.</td><td class="num">~20–60 k core-h</td></tr>
+      <tr><td>1. Structure search</td><td>ShakeNBreak bond distortions (±60%, 10% steps) plus rattles. 3 motifs × 3 q × ~25 starting structures, about 225 low-fidelity relaxations.</td><td class="num">~0.5–1.5 M core-h</td></tr>
+      <tr><td>2. Low-fidelity set</td><td>Relaxation-path frames, rattles, NEB images for I_i hopping and dimer dissociation. About 2,000–4,000 configurations.</td><td class="num">included in step 1, plus ~0.2 M</td></tr>
+      <tr><td>3. High-fidelity set</td><td>About 10% stratified by family and q, roughly 200–400 HSE+SOC single points.</td><td class="num">~0.5–2.5 M core-h</td></tr>
+      <tr><td>4. Training</td><td>Three models, each with 3 seeds.</td><td class="num">~100–300 GPU-h</td></tr>
+    </tbody></table></div>
+  <p class="note">These are order-of-magnitude estimates, scaled from the archived 567-atom r2SCAN runs (192 cores, 72 h walltime). Calibrate them with one timed run of each type at step 0. Hybrid+SOC with Pb is the dominant cost. Nothing has been submitted.</p>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Model</th><th>Training data</th><th>What it tests</th></tr></thead>
+    <tbody>
+      <tr><td>M0 baseline</td><td>Stock MACE, r2SCAN. Variant (a) has one model with no q input; variant (b) has separate models per q, following the CsPbCl3 approach.</td><td>(a) must fail on identical geometries in different q, which is a positive control. (b) is the cheap alternative that M1 has to beat.</td></tr>
+      <tr><td>M1</td><td>Charge-embedded, r2SCAN only.</td><td>The charge-dependent structural response at low fidelity.</td></tr>
+      <tr><td>M2</td><td>Charge-embedded multi-head, r2SCAN plus HSE+SOC.</td><td>Whether the targeted hybrid data change the physical predictions.</td></tr>
+    </tbody></table></div>
+</section>
+
+<section aria-labelledby="t4">
+  <h2 id="t4">5. Validation and acceptance criteria</h2>
+  <ul>
+    <li><b>Splits</b> are made by configuration family and trajectory, never by frame. One whole motif (for example the I3⁻ trimer) and one whole NEB path are held out.</li>
+    <li><b>Structure recovery:</b> after relaxation by the model, the hybrid+SOC ground-state geometry is recovered per q with local RMSD &lt; 0.1 Å, and the same motif is reached from ShakeNBreak starts.</li>
+    <li><b>Relative stability:</b> the ordering of competing iodine configurations per q is correct, with |ΔΔE| &lt; 0.05 eV per pair.</li>
+    <li><b>Charge-transition levels</b> are within 0.1 eV of HSE+SOC, after the same correction is applied to both.</li>
+    <li><b>Barriers</b> for I_i hopping and dimer dissociation or desorption are within 0.1 eV of the hybrid NEB on held-out paths.</li>
+    <li><b>Forces</b> are reported per q and per family, together with failure tails.</li>
+    <li><b>Value of hybrid data:</b> M2 must beat M1 on stability ordering or levels by more than the M1 error bar. Otherwise the HSE cost is not justified.</li>
+    <li><b>Physics checks:</b> if the q-states relax to the same structures, charge conditioning is unnecessary. If HSE+SOC does not localise the hole, problem B cannot be addressed this way.</li>
+  </ul>
+</section>
+
+<section aria-labelledby="t5">
+  <h2 id="t5">6. Effect on the DOE_1 predictions</h2>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Prediction</th><th>Effect</th></tr></thead>
+    <tbody>
+      <tr><td>Retained versus released iodine</td><td><span class="pill warn">partial</span> Gives charge-resolved free-energy differences and barriers for I_i → I–I → I2(g). Which charge state dominates under light still needs a carrier-population model.</td></tr>
+      <tr><td>Temperature, 25–55 °C</td><td><span class="pill ok">strengthened</span> The 30 K window needs converged finite-temperature sampling, which is prohibitive with hybrid+SOC AIMD. This is the main gain.</td></tr>
+      <tr><td>Light intensity and atmosphere</td><td><span class="pill bad">not addressed</span> Intensity enters only through carrier density and capture rates, which come from NAMD and kinetics. O2 and H2O are outside the pilot.</td></tr>
+      <tr><td>Observable iodine species</td><td><span class="pill ok">strengthened</span> Gives the relative stability of I_i, I2⁻, I3⁻ and I2 per charge state at finite temperature, which can be compared with spectroscopic signatures.</td></tr>
+    </tbody></table></div>
+</section>
+
+<section aria-labelledby="para">
+  <h2 id="para">7. Paragraph for the proposal</h2>
+  <pre style="white-space:pre-wrap;font-family:var(--body);font-size:14.5px;line-height:1.6">Whether illuminated surfaces retain or lose iodine depends on how photogenerated holes trapped at surface iodine change the free-energy landscape linking interstitial iodide, I–I bonded species, and volatile I2. Hybrid-functional calculations with spin–orbit coupling are needed to localise these holes correctly, but they are too costly for the finite-temperature sampling required to resolve trends across 25–55 °C. We will therefore test, behind an explicit decision gate, a charge-conditioned multifidelity interatomic potential (after Wang, Mosquera-Lois and Walsh, PRX Energy 2026). It will be trained mainly on r2SCAN data and calibrated with a targeted ~10% set of hybrid+SOC reference calculations, and used to compute charge-resolved stabilities and barriers for these iodine transformations at operating temperatures. We will adopt it only if it reproduces held-out hybrid-level structures, configuration orderings, and barriers. Photoexcitation, carrier capture, and recombination remain within our nonadiabatic dynamics framework. The potential supplies the charge-state-specific ground-state energetics that those kinetics require.</pre>
+</section>
+
+<section aria-labelledby="open">
+  <h2 id="open">Needs your decision</h2>
+  <ul>
+    <li><b>OK to download</b> Zenodo data.zip (about 102 MB, CC BY 4.0) to check whether the modified MACE code and training scripts are included?</li>
+    <li><b>Step 0 sanity gate</b> (~20–60 k core-h) needs separate HPC authorisation.</li>
+    <li><b>Archived r2SCAN charged runs:</b> should they be flagged as non-spin-polarised in the passivation tool's dataset, so they are excluded from labels?</li>
+    <li><b>Is a DOE_1 folder missing?</b> None was found in the research tree. If the proposal draft lives elsewhere, point me to it and I will align the wording.</li>
+  </ul>
+</section>
+</div>
