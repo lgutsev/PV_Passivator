@@ -393,3 +393,44 @@ def classify_final_state(initial: Atoms, final: Atoms, rec: SurfaceRecord,
     return {"final_state_class": cls, "details": details,
             "reaction_accounting": "unchanged" if cls in ("intact_adsorption",) else
             "must be re-declared: final state is not the declared molecular adsorption"}
+
+
+def fill_schottky(vac_slab: Atoms, vac_rec: SurfaceRecord, pas: Passivator, cation_fragment_site: list[float],
+                  anion_site: list[float], face: str = "top", anchor_element: str = "N",
+                  tilts=(0, 20, 40), azimuths=range(0, 360, 30), heights=(0.0, 0.5, 1.0),
+                  clash_scale: float = 1.0) -> tuple[Atoms, dict]:
+    """Salt exchange into an A-site + halide Schottky pair (confirmed convention, 2026-10-11): the organic
+    cation's ammonium N goes to the removed FA+ site and the salt's halide (I- or Cl-) to the removed I- site.
+    Returns the clash-free placement with the largest closest contact, plus a record of the choice."""
+    cats = [c for c in pas.components if c.formal_charge > 0]
+    ans = [c for c in pas.components if c.formal_charge < 0]
+    if len(cats) != 1 or len(ans) != 1 or len(ans[0].indices) != 1:
+        raise ValueError("fill_schottky needs a 1:1 salt of one organic cation and one monatomic halide")
+    cidx = cats[0].indices
+    cation = pas.atoms[cidx]
+    nloc = [k for k, i in enumerate(cidx) if pas.atoms[i].symbol == anchor_element]
+    if not nloc:
+        raise ValueError(f"cation has no {anchor_element} anchor")
+    hal = pas.atoms[ans[0].indices[0]].symbol
+    site = Site("V_FA", "FA_vacancy", face, list(cation_fragment_site), None)
+    best = None
+    for t in tilts:
+        for az in azimuths:
+            for h in heights:
+                m = place(vac_slab, vac_rec, pas, site, nloc[0], h, t, az, mol_atoms=cation)
+                x = Atoms(hal, positions=[anion_site], cell=vac_slab.cell, pbc=vac_slab.pbc)
+                x.set_array("atom_id", np.array([int(m.arrays["atom_id"].max()) + 1]))
+                x.set_array("fragment_id", np.array([int(m.arrays["fragment_id"].max()) + 1]))
+                x.set_array("origin", np.array([2]))
+                mm = m + x
+                if clash_report(vac_slab.cell.array, vac_slab.pbc, vac_slab.get_chemical_symbols(),
+                                vac_slab.positions, mm.get_chemical_symbols(), mm.positions, clash_scale):
+                    continue
+                d = float(min_image_distances(vac_slab.cell.array, vac_slab.pbc, mm.positions, vac_slab.positions).min())
+                if best is None or d > best[0]:
+                    best = (d, vac_slab + mm, {"tilt_deg": t, "azimuth_deg": float(az), "height_A": h,
+                                               "min_contact_A": d, "halide": hal,
+                                               "convention": "cation N -> V_FA site; halide -> V_I site"})
+    if best is None:
+        raise RuntimeError("no clash-free exchange placement; widen tilts/heights or check the vacancy sites")
+    return best[1], best[2]
