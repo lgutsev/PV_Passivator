@@ -173,9 +173,7 @@ def test_fill_schottky_puts_halide_in_iodide_vacancy(tmp_path):
     i_idx = [i for i, s in enumerate(syms) if s == "I"][-1]
     fa_pos, i_pos = a.positions[c_idx].copy(), a.positions[i_idx].copy()
     vac, vrec = remove_fragments(a, rec, [c_idx, i_idx], "FAI_Schottky")
-    # Cl- salt variant
     p = _pea_i(tmp_path, split=False)
-    txt = Path(p).read_text().replace(" I\n", " Cl\n").replace("I ", "Cl ", 1)
     m = load_passivator(p, "EAI", 0, 1, {"C2H8N": 1, "I": -1}, "ion_pair_salt")
     full, info = fill_schottky(vac, vrec, m, fa_pos, i_pos, heights=(0.0, 0.5, 1.0, 1.5), tilts=(0, 20, 40, 60))
     hal = [k for k, o in enumerate(full.arrays["origin"]) if o == 2][0]
