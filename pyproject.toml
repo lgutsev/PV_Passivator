@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pvpassivator"
+version = "0.1.0.dev0"
+description = "Perovskite surface passivation: charge-balanced preparation, DFT-backed analysis, and (future) validated DFT-free adsorption prediction."
+requires-python = ">=3.10"
+dependencies = ["numpy>=1.24", "ase>=3.23"]
+
+[project.optional-dependencies]
+dev = ["pytest>=7"]
+excel = ["openpyxl"]
+
+[project.scripts]
+pvpass = "pvpassivator.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "--basetemp=data/cache/pytest"

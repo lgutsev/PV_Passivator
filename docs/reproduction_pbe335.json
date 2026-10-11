@@ -1,0 +1,124 @@
+[
+ {
+  "case_id": "PbI2rich_PEAI",
+  "surface": "FAPbI3 PbI2-rich (x-normal), intact",
+  "equation": "FAPI_333_x_PbI2_Surf + PEAI -> FAPI_333_x_PbI2_Surf_PEAI",
+  "E_ads_eV_per_unit": null,
+  "sheet_eV": -1.77,
+  "delta_eV": null,
+  "verdict": "NOT REPRODUCIBLE: no energy in archive for ['slab']",
+  "run_status": {
+   "complex": "hit_nsw (99 steps)",
+   "slab": "empty (0 steps)",
+   "ref0:REAG:PEAI": "converged_inferred (7 steps)"
+  },
+  "balance_problems": [],
+  "fingerprint_problems": [],
+  "notes": "neutral PEA+I- ion pair adsorbed on intact slab"
+ },
+ {
+  "case_id": "PbI2rich_PEAAc",
+  "surface": "FAPbI3 PbI2-rich, intact",
+  "equation": "FAPI_333_x_PbI2_Surf + PEAAc -> FAPI_333_x_PbI2_Surf_PEAAc",
+  "E_ads_eV_per_unit": null,
+  "sheet_eV": -0.96,
+  "delta_eV": null,
+  "verdict": "NOT REPRODUCIBLE: no energy in archive for ['slab']",
+  "run_status": {
+   "complex": "hit_nsw (99 steps)",
+   "slab": "empty (0 steps)",
+   "ref0:REAG:PEAAc": "converged_inferred (11 steps)"
+  },
+  "balance_problems": [],
+  "fingerprint_problems": [],
+  "notes": ""
+ },
+ {
+  "case_id": "PbI2rich_FAI",
+  "surface": "FAPbI3 PbI2-rich, intact",
+  "equation": "FAPI_333_x_PbI2_Surf + FAI -> FAPI_333_x_PbI2_Surf_FAI",
+  "E_ads_eV_per_unit": null,
+  "sheet_eV": -1.242,
+  "delta_eV": null,
+  "verdict": "NOT REPRODUCIBLE: no energy in archive for ['slab', 'ref0:REAG:FAI']",
+  "run_status": {
+   "complex": "converged_inferred (20 steps)",
+   "slab": "empty (0 steps)",
+   "ref0:REAG:FAI": "missing (0 steps)"
+  },
+  "balance_problems": [
+   "Atoms not conserved (products minus reactants): C: +1, H: +5, I: +1, N: +2. A species or reservoir is missing, e.g. a counterion or released FA/H."
+  ],
+  "fingerprint_problems": [
+   "IVDW: complex=11 ref0:REAG:FAI=0",
+   "LASPH: complex=TRUE ref0:REAG:FAI=FALSE",
+   "ENCUT: complex=520 ref0:REAG:FAI=None",
+   "LREAL: complex=AUTO ref0:REAG:FAI=FALSE",
+   "SIGMA: complex=0.05 ref0:REAG:FAI=0.2",
+   "ISMEAR: complex=0 ref0:REAG:FAI=1",
+   "PREC: complex=ACCURATE ref0:REAG:FAI=NORMAL"
+  ],
+  "notes": ""
+ },
+ {
+  "case_id": "FAIrich_Schot_PEAAc",
+  "surface": "FAPbI3 FAI-rich with one FAI Schottky pair",
+  "equation": "FAPI_333_x_FAI_Schot + PEAAc -> FAPI_Schot_PEAAc",
+  "E_ads_eV_per_unit": 0.07051999999976033,
+  "sheet_eV": -1.583,
+  "delta_eV": 1.6535199999997603,
+  "verdict": "MISMATCH vs sheet (+1.654 eV); caveats: a run hit NSW (relaxation not converged)",
+  "run_status": {
+   "complex": "hit_nsw (99 steps)",
+   "slab": "converged_inferred (68 steps)",
+   "ref0:REAG:PEAAc": "converged_inferred (11 steps)"
+  },
+  "balance_problems": [],
+  "fingerprint_problems": [],
+  "notes": "salt fills V_FA + V_I; slab reference already lacks FAI"
+ },
+ {
+  "case_id": "FAIrich_Schot_PEATFA",
+  "surface": "FAPbI3 FAI-rich with one FAI Schottky pair",
+  "equation": "FAPI_333_x_FAI_Schot + PEATFA -> FAPI_Schot_PEATFA",
+  "E_ads_eV_per_unit": 0.04412000000002081,
+  "sheet_eV": -1.707,
+  "delta_eV": 1.7511200000000209,
+  "verdict": "MISMATCH vs sheet (+1.751 eV); caveats: a run hit NSW (relaxation not converged)",
+  "run_status": {
+   "complex": "hit_nsw (99 steps)",
+   "slab": "converged_inferred (68 steps)",
+   "ref0:REAG:PEATFA": "converged_inferred (17 steps)"
+  },
+  "balance_problems": [],
+  "fingerprint_problems": [],
+  "notes": ""
+ },
+ {
+  "case_id": "FAIrich_Schot_TFPACl",
+  "surface": "FAPbI3 FAI-rich with one FAI Schottky pair",
+  "equation": "FAPI_333_x_FAI_Schot + TFPACl -> FAPI_Schot_TFPACl",
+  "E_ads_eV_per_unit": null,
+  "sheet_eV": -2.191,
+  "delta_eV": null,
+  "verdict": "NOT REPRODUCIBLE: no energy in archive for ['ref0:REAG:TFPACl']",
+  "run_status": {
+   "complex": "hit_nsw (99 steps)",
+   "slab": "converged_inferred (68 steps)",
+   "ref0:REAG:TFPACl": "missing (0 steps)"
+  },
+  "balance_problems": [
+   "Atoms not conserved (products minus reactants): C: +3, Cl: +1, F: +3, H: +7, N: +1. A species or reservoir is missing, e.g. a counterion or released FA/H."
+  ],
+  "fingerprint_problems": [
+   "IVDW: complex=11 ref0:REAG:TFPACl=0",
+   "LASPH: complex=TRUE ref0:REAG:TFPACl=FALSE",
+   "ENCUT: complex=520 ref0:REAG:TFPACl=None",
+   "LREAL: complex=AUTO ref0:REAG:TFPACl=FALSE",
+   "SIGMA: complex=0.05 ref0:REAG:TFPACl=0.2",
+   "ISMEAR: complex=0 ref0:REAG:TFPACl=1",
+   "PREC: complex=ACCURATE ref0:REAG:TFPACl=NORMAL"
+  ],
+  "notes": "TFPACl reference folder not located in REAG_NEW archive"
+ }
+]

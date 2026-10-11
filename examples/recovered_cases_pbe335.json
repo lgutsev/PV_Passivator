@@ -1,0 +1,16 @@
+{
+  "description": "Representative FAPbI3 (PBE+D3, 335 slab) adsorption cases recovered from VASP_Adsorption_Energy.xlsx and the OutPackLite archives. sheet_value = spreadsheet E_ads (eV per adsorbed unit).",
+  "archives": {
+    "PBI2": "C:/Users/lguts/OneDrive/Desktop/Research/2026/Perovskites/GIEC_Projects/VASP/2025/X_OutPackLite_PbI2_Surf_335_PBE_Mar15_2025.zip",
+    "FAI":  "C:/Users/lguts/OneDrive/Desktop/Research/2026/Perovskites/GIEC_Projects/VASP/2024/X_OutPackLite_FAI_Surf_335_PBE_Dec26_2024.zip",
+    "REAG": "C:/Users/lguts/OneDrive/Desktop/Research/2026/Perovskites/GIEC_Projects/VASP/2025/X_OutPackLite_REAG_NEW_Mar15_2025.zip"
+  },
+  "cases": [
+    {"case_id": "PbI2rich_PEAI", "surface": "FAPbI3 PbI2-rich (x-normal), intact", "complex": "PBI2:FAPI_333_x_PbI2_Surf_PEAI", "slab": "PBI2:FAPI_333_x_PbI2_Surf", "refs": [[1, "REAG:PEAI"]], "n_units": 1, "sheet_value": -1.770, "sheet_cell": "EAbs_PbI2_Surf", "notes": "neutral PEA+I- ion pair adsorbed on intact slab"},
+    {"case_id": "PbI2rich_PEAAc", "surface": "FAPbI3 PbI2-rich, intact", "complex": "PBI2:FAPI_333_x_PbI2_Surf_PEAAc", "slab": "PBI2:FAPI_333_x_PbI2_Surf", "refs": [[1, "REAG:PEAAc"]], "n_units": 1, "sheet_value": -0.960, "sheet_cell": "EAbs_PbI2_Surf"},
+    {"case_id": "PbI2rich_FAI", "surface": "FAPbI3 PbI2-rich, intact", "complex": "PBI2:FAPI_333_x_PbI2_Surf_FAI", "slab": "PBI2:FAPI_333_x_PbI2_Surf", "refs": [[1, "REAG:FAI"]], "n_units": 1, "sheet_value": -1.242, "sheet_cell": "EAbs_PbI2_Surf"},
+    {"case_id": "FAIrich_Schot_PEAAc", "surface": "FAPbI3 FAI-rich with one FAI Schottky pair", "complex": "FAI:FAPI_Schot_PEAAc", "slab": "FAI:FAPI_333_x_FAI_Schot", "refs": [[1, "REAG:PEAAc"]], "n_units": 1, "sheet_value": -1.583, "sheet_cell": "EAbs_FAI_Surf_BIG", "energy_kind": "exchange", "notes": "salt fills V_FA + V_I; slab reference already lacks FAI"},
+    {"case_id": "FAIrich_Schot_PEATFA", "surface": "FAPbI3 FAI-rich with one FAI Schottky pair", "complex": "FAI:FAPI_Schot_PEATFA", "slab": "FAI:FAPI_333_x_FAI_Schot", "refs": [[1, "REAG:PEATFA"]], "n_units": 1, "sheet_value": -1.707, "sheet_cell": "EAbs_FAI_Surf_BIG", "energy_kind": "exchange"},
+    {"case_id": "FAIrich_Schot_TFPACl", "surface": "FAPbI3 FAI-rich with one FAI Schottky pair", "complex": "FAI:FAPI_Schot_TFPACl", "slab": "FAI:FAPI_333_x_FAI_Schot", "refs": [[1, "REAG:TFPACl"]], "n_units": 1, "sheet_value": -2.191, "sheet_cell": "EAbs_FAI_Surf_BIG", "energy_kind": "exchange", "notes": "TFPACl reference folder not located in REAG_NEW archive"}
+  ]
+}
