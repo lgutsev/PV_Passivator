@@ -97,3 +97,14 @@ def test_parse_lite_oszicar(tmp_path):
     r = parse_lite(tmp_path)
     assert r.energy_F == pytest.approx(-2418.0321) and r.status == "hit_nsw"
     assert r.composition == {"Pb": 1, "I": 2}
+
+
+def test_odd_electron_nonspin_rejected(tmp_path):
+    from pvpassivator.recovery import ZVAL_ASSUMED
+    (tmp_path / "INCAR").write_text("IBRION = 2\nNSW = 99\nISIF = 4\nNELECT = 2681\n")
+    (tmp_path / "POSCAR").write_text("x\n1\n1 0 0\n0 1 0\n0 0 1\nC H I N Pb\n45 225 153 90 54\nDirect\n")
+    (tmp_path / "OSZICAR").write_text("  57 F= -.9116E+04 E0= -.9116E+04  d E =-.1E-03\n")
+    bad = parse_lite(tmp_path).acceptance(ZVAL_ASSUMED)
+    assert any("ISPIN=1" in b for b in bad) and any("ISIF=4" in b for b in bad)
+    (tmp_path / "INCAR").write_text("IBRION = 2\nNSW = 99\nISIF = 2\nISPIN = 2\nNELECT = 2681\n")
+    assert parse_lite(tmp_path).acceptance(ZVAL_ASSUMED) == []

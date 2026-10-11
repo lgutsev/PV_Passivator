@@ -19,6 +19,23 @@ HAMILTONIAN_KEYS = ("GGA", "METAGGA", "LHFCALC", "HFSCREEN", "IVDW", "VDW_S6", "
                     "LASPH", "LDAU", "ISMEAR", "SIGMA", "LREAL", "ADDGRID")
 
 
+def electronic_state_problems(incar: dict, n_electrons: float | None, cell_charge: float | None) -> list[str]:
+    """Label-acceptance rules for the electronic state (user decision 2026-10-11):
+    an odd-electron cell computed without spin polarisation is not a valid label (the unpaired
+    electron/hole is forced into a fractionally occupied, artificially delocalised state)."""
+    bad = []
+    ispin = int(float(incar.get("ISPIN", 1) or 1))
+    ncl = str(incar.get("LSORBIT", "")).upper().strip(".") in ("TRUE", "T") or         str(incar.get("LNONCOLLINEAR", "")).upper().strip(".") in ("TRUE", "T")
+    if n_electrons is not None and not ncl and ispin == 1 and int(round(n_electrons)) % 2 == 1:
+        bad.append(f"odd electron count ({n_electrons:g}) computed with ISPIN=1: spin state not represented")
+    if cell_charge not in (None, 0) and abs(cell_charge) > 1e-6:
+        isif = int(float(incar.get("ISIF", 2) or 2))
+        if isif >= 3:
+            bad.append(f"charged cell (q={cell_charge:+g}) with cell relaxation ISIF={isif}: "
+                       "cell responds to the compensating background")
+    return bad
+
+
 @dataclass
 class VaspRun:
     path: str
@@ -80,6 +97,7 @@ class VaspRun:
             bad.append("ionic relaxation did not reach required accuracy")
         if ediffg_force is not None and self.max_force is not None and self.max_force > ediffg_force * 1.05:
             bad.append(f"max force {self.max_force:.3f} eV/A > {ediffg_force}")
+        bad += electronic_state_problems(self.incar, self.nelect, self.cell_charge)
         return bad
 
     def to_dict(self) -> dict:
@@ -259,6 +277,24 @@ class LiteRun:
 
     def fingerprint(self) -> dict:
         return normalized_fingerprint(self.incar, self.kpoints)
+
+    def n_electrons(self, zval: dict[str, float]) -> float:
+        ne = self.nelect_override()
+        return ne if ne is not None else sum(zval[s] * n for s, n in self.composition.items())
+
+    def acceptance(self, zval: dict[str, float]) -> list[str]:
+        """Reasons this archived run is not a trusted label; [] means accepted (as far as an
+        OutPackLite archive allows: no forces, convergence inferred from step counts)."""
+        bad = []
+        if self.status in ("empty", "missing"):
+            bad.append(f"no energy ({self.status})")
+        if self.status == "hit_nsw":
+            bad.append("relaxation stopped at NSW")
+        if self.status == "converged_inferred" and self.n_ionic <= 3 and                 int(float(self.incar.get("NSW", 0) or 0)) > 3:
+            bad.append(f"only {self.n_ionic} ionic steps in OSZICAR: likely a restart fragment; "
+                       "convergence of the full relaxation unknown")
+        bad += electronic_state_problems(self.incar, self.n_electrons(zval), self.cell_charge(zval))
+        return bad
 
 
 def parse_lite(folder: str | Path) -> LiteRun:

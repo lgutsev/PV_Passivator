@@ -16,9 +16,19 @@ from ase.constraints import FixAtoms
 
 from .vasp_io import normalized_fingerprint
 
-# PAW variants recovered from electron counts in archived runs (Pb_d=14 e) [inferred]
-POTCAR_VARIANTS = {"Pb": "Pb_d", "I": "I", "C": "C", "N": "N", "H": "H", "O": "O", "F": "F",
-                   "Cl": "Cl", "Br": "Br", "S": "S", "Cs": "Cs_sv", "Na": "Na_pv", "K": "K_sv"}
+# PAW variants: Lavrenty's POTCAR_DEFS.txt (POTCAR_gen default on LONI, /home/lgutsev/bin/POTCAR_DEFS.txt;
+# copy shipped in data/). Never choose a variant independently; a missing element is an error.
+def load_potcar_defs(path: str | Path | None = None) -> dict[str, str]:
+    path = Path(path) if path else Path(__file__).with_name("data") / "POTCAR_DEFS.txt"
+    out = {}
+    for line in path.read_text().splitlines():
+        if "|" in line:
+            el, var = line.strip().split("|", 1)
+            out[el] = var
+    return out
+
+
+POTCAR_VARIANTS = load_potcar_defs()
 ZVAL = {"Pb_d": 14, "I": 7, "C": 4, "N": 5, "H": 1, "O": 6, "F": 7, "Cl": 7, "Br": 7, "S": 6,
         "Cs_sv": 9, "Na_pv": 7, "K_sv": 9}
 
@@ -123,6 +133,9 @@ def write_job(atoms: Atoms, out_dir: str | Path, profile: str, role: str, *, cel
     perm, species = _order(atoms)
     a = atoms[perm]
     ids = (atoms.arrays["atom_id"][perm].tolist() if "atom_id" in atoms.arrays else perm)
+    missing = [s for s in species if s not in POTCAR_VARIANTS]
+    if missing:
+        raise KeyError(f"{missing} not in POTCAR_DEFS.txt; ask before choosing a POTCAR variant")
     pots = [POTCAR_VARIANTS[s] for s in species]
     n_neutral = sum(ZVAL[POTCAR_VARIANTS[s]] for s in a.get_chemical_symbols())
     nelect = n_neutral - cell_charge
