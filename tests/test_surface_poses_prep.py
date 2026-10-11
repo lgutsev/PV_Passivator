@@ -160,3 +160,24 @@ def test_bundle_refuses_unbalanced(tmp_path):
     plan = adsorption_bundle(tmp_path, "ok", at, r, cplx, [("I", Atoms("I"), 0, 2, 1)], n_units=1)
     assert plan["equation"] == "bare_slab + I -> complex"
     assert "ISPIN = 2" in (tmp_path / "ok" / "ref_I" / "static" / "INCAR").read_text()
+
+
+def test_fill_schottky_puts_halide_in_iodide_vacancy(tmp_path):
+    from pvpassivator.poses import fill_schottky
+    at = toy_slab()
+    at.write(tmp_path / "POSCAR", format="vasp")
+    a, rec = load_surface(tmp_path / "POSCAR")
+    a = tag_substrate(a)
+    syms = a.get_chemical_symbols()
+    c_idx = syms.index("C")
+    i_idx = [i for i, s in enumerate(syms) if s == "I"][-1]
+    fa_pos, i_pos = a.positions[c_idx].copy(), a.positions[i_idx].copy()
+    vac, vrec = remove_fragments(a, rec, [c_idx, i_idx], "FAI_Schottky")
+    # Cl- salt variant
+    p = _pea_i(tmp_path, split=False)
+    txt = Path(p).read_text().replace(" I\n", " Cl\n").replace("I ", "Cl ", 1)
+    m = load_passivator(p, "EAI", 0, 1, {"C2H8N": 1, "I": -1}, "ion_pair_salt")
+    full, info = fill_schottky(vac, vrec, m, fa_pos, i_pos, heights=(0.0, 0.5, 1.0, 1.5), tilts=(0, 20, 40, 60))
+    hal = [k for k, o in enumerate(full.arrays["origin"]) if o == 2][0]
+    assert np.allclose(full.positions[hal], i_pos) and info["halide"] == "I"
+    assert len(full) == len(vac) + len(m.atoms)
