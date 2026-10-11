@@ -1,0 +1,226 @@
+<title>PV Passivator Workbench</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/3dmol@2.1.0/build/3Dmol-min.js"></script>
+<style>
+/* Layout: a lab notebook — narrow reading column, one wide structure bench. Accent = iodine violet. */
+:root{
+  --bg:#f6f6f8; --panel:#ffffff; --ink:#1d2230; --muted:#5b6274; --line:#dcdfe7;
+  --accent:#6a3fa3; --accent-soft:#efe8f8; --lead:#575d6b;
+  --ok:#1f7a4d; --ok-bg:#e3f3ea; --warn:#9a6200; --warn-bg:#fbf0d9; --bad:#b0302b; --bad-bg:#f9e2e0; --idle:#5b6274; --idle-bg:#eceef3;
+  --viewer:#ffffff;
+  --display:"Newsreader", Georgia, "Times New Roman", serif;
+  --body:"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono:"IBM Plex Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#13151c; --panel:#1b1e27; --ink:#e6e8ef; --muted:#9aa1b2; --line:#2d313d;
+  --accent:#b996ea; --accent-soft:#2a2238; --lead:#a3a9b6;
+  --ok:#6fd3a0; --ok-bg:#16301f; --warn:#f0c062; --warn-bg:#33280f; --bad:#f08a84; --bad-bg:#3a1a19; --idle:#9aa1b2; --idle-bg:#252833;
+  --viewer:#0f1117; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#13151c; --panel:#1b1e27; --ink:#e6e8ef; --muted:#9aa1b2; --line:#2d313d;
+  --accent:#b996ea; --accent-soft:#2a2238; --lead:#a3a9b6;
+  --ok:#6fd3a0; --ok-bg:#16301f; --warn:#f0c062; --warn-bg:#33280f; --bad:#f08a84; --bad-bg:#3a1a19; --idle:#9aa1b2; --idle-bg:#252833;
+  --viewer:#0f1117; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:15px/1.55 var(--body)}
+.wrap{max-width:1180px;margin:0 auto;padding-inline:20px;padding-block:28px 64px;display:grid;gap:40px}
+h1,h2,h3{font-family:var(--display);font-weight:600;text-wrap:balance;margin:0}
+h1{font-size:clamp(28px,4vw,40px);line-height:1.1}
+h2{font-size:24px;line-height:1.2}
+h3{font-size:17px;font-family:var(--body);font-weight:600}
+p{margin:0;max-width:68ch}
+.eyebrow{font:500 12px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+header{display:grid;gap:12px}
+.lede{color:var(--muted);font-size:16px}
+section{display:grid;gap:16px;min-width:0}
+.pill{display:inline-block;font:500 12px/1 var(--mono);padding:5px 8px;border-radius:4px;white-space:nowrap}
+.ok{color:var(--ok);background:var(--ok-bg)} .warn{color:var(--warn);background:var(--warn-bg)}
+.bad{color:var(--bad);background:var(--bad-bg)} .idle{color:var(--idle);background:var(--idle-bg)}
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:6px;background:var(--panel)}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{padding:9px 12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{font:500 12px/1.3 var(--mono);letter-spacing:.04em;text-transform:uppercase;color:var(--muted);background:var(--bg)}
+tr:last-child td{border-bottom:0}
+td.num{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+code,.mono{font-family:var(--mono);font-size:13px}
+/* bench */
+.bench{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:16px;align-items:start}
+@media (max-width:860px){.bench{grid-template-columns:1fr}}
+.tabs{display:flex;flex-wrap:wrap;gap:6px}
+.tabs button{font:500 13px var(--body);color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:5px;padding:7px 11px;cursor:pointer}
+.tabs button[aria-selected="true"]{background:var(--accent);border-color:var(--accent);color:var(--panel)}
+.tabs button:focus-visible,.ctl button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.viewer{position:relative;width:100%;aspect-ratio:4/3;max-width:100%;border:1px solid var(--line);border-radius:6px;background:var(--viewer);overflow:hidden}
+.viewer .fallback{position:absolute;inset:0;display:grid;place-items:center;color:var(--muted);font-size:14px;padding:20px;text-align:center}
+.ctl{display:flex;flex-wrap:wrap;gap:6px}
+.ctl button{font:500 12px var(--mono);background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:4px;padding:6px 9px;cursor:pointer}
+.ctl button[aria-pressed="true"]{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
+.side{display:grid;gap:14px;min-width:0}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:14px 16px;display:grid;gap:10px;min-width:0}
+dl{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;margin:0;font-size:13px}
+dt{color:var(--muted)} dd{margin:0;font-family:var(--mono);font-size:12.5px;word-break:break-word}
+.legend{display:flex;flex-wrap:wrap;gap:10px;font-size:12.5px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.dot{width:11px;height:11px;border-radius:50%;display:inline-block;border:1px solid var(--line)}
+.caption{font-size:14px;color:var(--ink)}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,330px),1fr));gap:16px}
+pre{margin:0;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:12px 14px;overflow-x:auto;font:12.5px/1.5 var(--mono)}
+ul{margin:0;padding-left:20px;display:grid;gap:6px;max-width:72ch}
+.note{font-size:13px;color:var(--muted)}
+.statusgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:10px}
+.status{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;align-items:start;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:11px 13px}
+.status b{font-weight:600;font-size:14px}
+.status .d{grid-column:2;font-size:13px;color:var(--muted)}
+</style>
+
+<div class="wrap">
+<header>
+  <div class="eyebrow">FAPbI3 surface passivation · stage 2 status · 11 Oct 2026</div>
+  <h1>PV Passivator Workbench</h1>
+  <p class="lede">What the tool builds today, shown on your own r2SCAN slabs. Every structure below comes straight from the code. Rotate each one and check that the chemistry, site choice and charge bookkeeping look right before any jobs are submitted.</p>
+</header>
+
+<section aria-labelledby="s-status">
+  <h2 id="s-status">Where things stand</h2>
+  <div class="statusgrid">
+    <div class="status"><span class="pill ok">tested</span><b>Charge and atom ledger</b><span class="d">Balanced reactions, q = ΣZVAL − NELECT, counterion-loss and reservoir checks. Refuses to compute with a missing reference.</span></div>
+    <div class="status"><span class="pill ok">tested</span><b>Surface import and sites</b><span class="d">Finds the normal axis, vacuum and face terminations, then lists undercoordinated Pb, exposed I and FA sites.</span></div>
+    <div class="status"><span class="pill ok">tested</span><b>Passivators and poses</b><span class="d">Charges must be declared and every salt component is kept. Collision checks use minimum-image periodic distances. Stable atom ids are kept.</span></div>
+    <div class="status"><span class="pill ok">tested</span><b>Defects and final-state class</b><span class="d">Removes whole fragments (Schottky pairs). Classifies relaxed states as intact, proton transfer, rearrangement or desorbed.</span></div>
+    <div class="status"><span class="pill ok">tested</span><b>VASP job bundles</b><span class="d">Linked relax → static jobs for slab, complex and references. POTCAR spec only. Dry run; nothing is submitted.</span></div>
+    <div class="status"><span class="pill warn">synthetic only</span><b>Charge displacement</b><span class="d">Δn, λ(z) and CD(z) with grid checks. No archived CHGCARs exist to test it on real data.</span></div>
+    <div class="status"><span class="pill warn">synthetic only</span><b>NAMD frame export</b><span class="d">Replaces FolderPrep.py with window, duplicate and atom-map checks. Needs a real XDATCAR_FINAL.</span></div>
+    <div class="status"><span class="pill idle">not started</span><b>MLIP benchmark and predictor</b><span class="d">This waits on r2SCAN reference labels. No model accuracy is claimed.</span></div>
+  </div>
+</section>
+
+<section aria-labelledby="s-bench">
+  <h2 id="s-bench">Structure bench</h2>
+  <p class="note">The surface normal is drawn vertical, so the vacuum is above and below. Drag to rotate and scroll to zoom. Gold atoms are the ones each view is about. Translucent spheres mark atoms that were removed. Poses are starting geometries, not relaxed results.</p>
+  <div class="tabs" role="tablist" id="tabs"></div>
+  <div class="bench">
+    <div style="display:grid;gap:10px;min-width:0">
+      <div class="viewer" id="viewer"><div class="fallback" id="fallback">Loading 3D viewer…</div></div>
+      <div class="ctl" id="ctl">
+        <button type="button" id="b-style" aria-pressed="false">Space-filling</button>
+        <button type="button" id="b-h" aria-pressed="true">Show H</button>
+        <button type="button" id="b-cell" aria-pressed="true">Unit cell</button>
+        <button type="button" id="b-focus" aria-pressed="false">Zoom to highlighted</button>
+        <button type="button" id="b-reset">Reset view</button>
+      </div>
+      <div class="legend">
+        <span><i class="dot" style="background:#6b6f78"></i>Pb</span><span><i class="dot" style="background:#940094"></i>I</span>
+        <span><i class="dot" style="background:#3050f8"></i>N</span><span><i class="dot" style="background:#909090"></i>C</span>
+        <span><i class="dot" style="background:#ffffff"></i>H</span><span><i class="dot" style="background:#e3b23c"></i>highlighted</span>
+      </div>
+    </div>
+    <div class="side">
+      <div class="card"><h3 id="s-title"></h3><p class="caption" id="s-cap"></p></div>
+      <div class="card"><dl id="s-facts"></dl></div>
+    </div>
+  </div>
+</section>
+
+<section aria-labelledby="s-prep">
+  <h2 id="s-prep">Prepared job bundle: PEAI on PbI2-rich, pose 1</h2>
+  <p>The bundle is written only after the atom and charge balance check passes. The energy is taken from the linked static runs, not from the end of a relaxation.</p>
+  <pre>__EQUATION__
+E_ads = [E(complex/static) − E(bare_slab/static) − E(PEAI/static)] / 1     (σ→0 energy; negative = exothermic)
+
+PbI2rich_PEAI_pose0/
+  bare_slab/relax  → bare_slab/static    NELECT 2682 (neutral)   k 1×2×2 Γ   fingerprint __FP_SLAB__
+  complex/relax    → complex/static      NELECT 2738 (neutral)   k 1×2×2 Γ   fingerprint __FP_SLAB__
+  ref_PEAI/relax   → ref_PEAI/static     NELECT 56   (neutral)   Γ only, 25 Å box
+  bundle.json  ·  each job: INCAR, KPOINTS, POSCAR, POTCAR.spec (C H I N Pb_d), job.json with atom map</pre>
+  <div class="grid2">
+    <div style="display:grid;gap:8px;min-width:0"><h3>complex/relax INCAR (profile r2scan_d3bj_v1)</h3><pre>__INCAR_RELAX__</pre></div>
+    <div style="display:grid;gap:8px;min-width:0"><h3>What changed from your recovered r2SCAN runs</h3>
+      <div class="tablewrap"><table>
+        <thead><tr><th>Setting</th><th>Recovered</th><th>v1 proposal</th><th>Why</th></tr></thead>
+        <tbody>
+          <tr><td>ISIF</td><td class="num">4</td><td class="num">2</td><td>Slab, complex and defect slab need one common cell for a direct E_ads.</td></tr>
+          <tr><td>Dipole</td><td class="num">none</td><td class="num">IDIPOL=1</td><td>Pose sets break the slab's symmetry; the field must not leak across vacuum.</td></tr>
+          <tr><td>EDIFF / EDIFFG</td><td class="num">defaults</td><td class="num">1E-6 / −0.02</td><td>Defaults (1E-4, 1E-3 eV energy) are loose for labels and forces.</td></tr>
+          <tr><td>NSW</td><td class="num">99</td><td class="num">300</td><td>Many archived complexes stopped at 99 steps.</td></tr>
+          <tr><td>k-mesh</td><td class="num">1×1×1</td><td class="num">1×2×2</td><td>KSPACING 0.25 Å⁻¹. Treat as a convergence test, not a settled value.</td></tr>
+          <tr><td>Energy</td><td class="num">last relax step</td><td class="num">separate static</td><td>Gives a clean label energy, plus LVHAR for work functions.</td></tr>
+          <tr><td>Bottom layers</td><td class="num">free</td><td class="num">free (option)</td><td>Fixing them is a convergence choice, not a default.</td></tr>
+        </tbody></table></div>
+      <p class="note">Functional, D3(BJ) coefficients (s8 0.7898, a1 0.4948, a2 5.7308), ENCUT 520 and PREC are unchanged. SOC is off in both. Check the effect of SOC on band edges before using these runs for electronic analyses.</p>
+    </div>
+  </div>
+</section>
+
+<section aria-labelledby="s-legacy">
+  <h2 id="s-legacy">Legacy PBE+D3 numbers, re-derived from the archives</h2>
+  <p>These checks are now provenance only, since labels move to r2SCAN+D3(BJ). Spreadsheet values were recomputed from archived OSZICARs where the runs exist. Mismatches can come from runs that were later discarded, which matches your recollection.</p>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Case</th><th>Raw archive E_ads</th><th>Spreadsheet</th><th>Status</th><th>Why</th></tr></thead>
+    <tbody>
+      <tr><td>PbI2-rich + PEAI</td><td class="num">—</td><td class="num">−1.770</td><td><span class="pill bad">no slab energy</span></td><td>Bare-slab OSZICAR is header-only. −2624.695 eV is not in any archive checked.</td></tr>
+      <tr><td>PbI2-rich + PEAAc</td><td class="num">—</td><td class="num">−0.960</td><td><span class="pill bad">no slab energy</span></td><td>Same bare slab.</td></tr>
+      <tr><td>PbI2-rich + FAI</td><td class="num">—</td><td class="num">−1.242</td><td><span class="pill bad">missing refs</span></td><td>Slab energy and the FAI reference are both missing.</td></tr>
+      <tr><td>FAI-rich Schottky + PEAAc</td><td class="num">+0.071</td><td class="num">−1.583</td><td><span class="pill warn">mismatch</span></td><td>Archived Schottky slab is 2.06 eV lower than the sheet's slab. Complex stopped at NSW=99.</td></tr>
+      <tr><td>FAI-rich Schottky + PEATFA</td><td class="num">+0.044</td><td class="num">−1.707</td><td><span class="pill warn">mismatch</span></td><td>Same slab issue.</td></tr>
+      <tr><td>FAI-rich Schottky + TFPACl</td><td class="num">—</td><td class="num">−2.191</td><td><span class="pill bad">missing ref</span></td><td>TFPACl reference folder not found.</td></tr>
+    </tbody></table></div>
+  <p class="note">The spreadsheet also has these issues: BIG!G22/G23 mix 333 and 335 energies (+936 eV); the FINAL sheet swaps the PEATFA and PEAAc labels in column H; BIG "Schot PEAI" duplicates "FAVac PEA".</p>
+</section>
+
+<section aria-labelledby="s-next">
+  <h2 id="s-next">What r2SCAN labels need next</h2>
+  <ul>
+    <li>No r2SCAN references exist for any passivator. The 2024 REAG set is PBE+D3(zero) and cannot be mixed with r2SCAN slabs. Each case needs its own reference jobs, and the bundles already include them.</li>
+    <li>The r2SCAN archive covers defects and small anions (Ac, Cl, TFA, PbI3) but no organic passivators. The first label set would be bare and Schottky slabs plus the PEAI, PEAAc and PEATFA complexes at several poses.</li>
+    <li>Please check: is putting the NH3 group into the FA+ vacancy and I− into the I vacancy (the exchange view) the configuration you used before?</li>
+    <li>Still open: which run gave the −2415.975 eV Schottky slab, and whether 2000 or 1999 NAMD frames is canonical.</li>
+  </ul>
+</section>
+</div>
+
+<script>
+const DATA = __DATA__;
+const tabs = document.getElementById('tabs');
+let viewer = null, cur = 0, opts = {sphere:false, h:true, cell:true, focus:false};
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+DATA.forEach((d,i)=>{const b=document.createElement('button');b.type='button';b.role='tab';b.id='tab-'+d.key;b.textContent=d.title;b.setAttribute('aria-selected',i===0);b.onclick=()=>show(i);tabs.appendChild(b);});
+function fill(d){
+  document.getElementById('s-title').textContent=d.title;
+  document.getElementById('s-cap').textContent=d.caption;
+  const dl=document.getElementById('s-facts');dl.innerHTML='';
+  Object.entries(d.facts).forEach(([k,v])=>{const t=document.createElement('dt');t.textContent=k;const e=document.createElement('dd');e.textContent=v;dl.append(t,e);});
+}
+function draw(resetView){
+  const d=DATA[cur]; if(!viewer) return;
+  viewer.clear(); viewer.setBackgroundColor(css('--viewer')||'#ffffff');
+  const m=viewer.addModel(d.xyz,'xyz');
+  const hl=new Set(d.highlight);
+  const base = opts.sphere ? {sphere:{scale:0.85,colorscheme:'Jmol'}} : {stick:{radius:0.12,colorscheme:'Jmol'},sphere:{scale:0.25,colorscheme:'Jmol'}};
+  viewer.setStyle({},base);
+  if(!opts.h) viewer.setStyle({elem:'H'},{});
+  if(hl.size){ const idx=[...hl];
+    viewer.setStyle({index:idx}, opts.sphere?{sphere:{scale:0.95,color:'#e3b23c'}}:{stick:{radius:0.16,color:'#e3b23c'},sphere:{scale:0.42,color:'#e3b23c'}}); }
+  d.ghosts.forEach(g=>viewer.addSphere({center:{x:g.pos[0],y:g.pos[1],z:g.pos[2]},radius:g.elem==='I'?1.2:0.75,color:'#e3b23c',opacity:0.35}));
+  if(opts.cell){ const c=d.cell; const o=[0,0,0]; const add=(a,b)=>a.map((x,i)=>x+b[i]);
+    const P=[o,c[0],c[1],c[2],add(c[0],c[1]),add(c[0],c[2]),add(c[1],c[2]),add(add(c[0],c[1]),c[2])];
+    [[0,1],[0,2],[0,3],[1,4],[1,5],[2,4],[2,6],[3,5],[3,6],[4,7],[5,7],[6,7]].forEach(([a,b])=>viewer.addLine({start:{x:P[a][0],y:P[a][1],z:P[a][2]},end:{x:P[b][0],y:P[b][1],z:P[b][2]},color:css('--muted')||'#888',dashed:false}));}
+  if(resetView){ if(opts.focus && hl.size) viewer.zoomTo({index:[...hl]}); else viewer.zoomTo(); viewer.rotate(-75,'x'); viewer.rotate(20,'y'); if(opts.focus&&hl.size) viewer.zoom(0.6);}
+  viewer.render();
+}
+function show(i){cur=i;[...tabs.children].forEach((b,j)=>b.setAttribute('aria-selected',j===i));fill(DATA[i]);draw(true);}
+function toggle(id,key,redo){const b=document.getElementById(id);b.onclick=()=>{opts[key]=!opts[key];b.setAttribute('aria-pressed',opts[key]);draw(redo);};}
+toggle('b-style','sphere',false);toggle('b-h','h',false);toggle('b-cell','cell',false);toggle('b-focus','focus',true);
+document.getElementById('b-reset').onclick=()=>draw(true);
+fill(DATA[0]);
+function init(){
+  if(!window.$3Dmol){document.getElementById('fallback').textContent='The 3D viewer library did not load. The structure facts on the right are still accurate.';return;}
+  document.getElementById('fallback').remove();
+  viewer=$3Dmol.createViewer(document.getElementById('viewer'),{backgroundColor:css('--viewer')||'#ffffff',antialias:true});
+  draw(true);
+  window.addEventListener('resize',()=>{viewer.resize();viewer.render();});
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>draw(false));
+}
+if(document.readyState==='complete') init(); else window.addEventListener('load',init);
+</script>
