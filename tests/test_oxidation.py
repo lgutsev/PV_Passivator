@@ -359,3 +359,31 @@ def test_cli_oxidize_writes_poses_and_refuses_overwrite(tmp_path):
     assert (out / d["poses"][0]["folder"] / "start.extxyz").exists()
     assert main(["oxidize", str(tmp_path / "POSCAR"), "--out", str(out)]) == 2
     assert main(["oxidize", str(tmp_path / "POSCAR"), "--out", str(tmp_path / "x"), "--halide", "0"]) == 2
+
+
+def test_lifted_out_is_relative_to_the_start_on_an_apical_site(tmp_path):
+    """FAI-terminated face: an apical iodide sits ~3.2 A above its Pb, so an O-down oxyanion bound through one O
+    is far above the Pb plane without being lifted out. Only a rise from its own start with no bond left counts."""
+    from pvpassivator.oxidation import oxyanion_preset_poses, oxyanion_state
+    from pvpassivator.surface import find_sites
+    at = toy_slab(nlayers=4)                          # PbI2 | FAI | PbI2 | FAI -> FAI-terminated top
+    at.write(tmp_path / "POSCAR", format="vasp")
+    atoms, rec = load_surface(tmp_path / "POSCAR", surface_id="toyFAI")
+    assert rec.faces["top"]["termination"] == "FAI"
+    site = next(s for s in find_sites(atoms, rec, "top") if s.halide_class == "apical")
+    full, spec = oxyanion_preset_poses(atoms, rec, site, 3, "O-down")[0]
+    n = _normal(full, rec)
+    h, o = spec.halide_index, list(range(len(full) - 3, len(full)))
+    pb = min((i for i, s in enumerate(full.get_chemical_symbols()) if s == "Pb"),
+             key=lambda i: full.get_distance(i, o[0], mic=True))
+    # relaxed: the down O settles onto the Pb below (2.45 A); iodine stays ~4 A above the Pb plane
+    bound = full.copy()
+    bound.positions[[h] + o] -= (bound.get_distance(pb, o[0], mic=True) - 2.45) * n
+    s = oxyanion_state(full, bound, rec, spec.halide_atom_id)
+    assert s["oxyanion_class"] == "intact_bound" and s["halide_height_A"] > 3.5
+    assert "lifted_out" not in s["flags"] and s["halide_rise_A"] < 0
+    # risen 2.5 A from its start with no O-Pb or I-Pb bond left: lifted out
+    up = full.copy()
+    up.positions[[h] + o] += 2.5 * n
+    s = oxyanion_state(full, up, rec, spec.halide_atom_id)
+    assert "lifted_out" in s["flags"] and s["halide_rise_A"] == pytest.approx(2.5, abs=1e-6)

@@ -429,6 +429,7 @@ IO_BOND = 2.3          # A, halide-O distance still counted as an oxyanion bond 
 OH_BOND = 1.15         # A, O-H distance counted as a covalent bond (proton on an oxyanion O)
 O_TRANSFER_PB = 2.4    # A, a cleaved O this close to a Pb is counted as transferred to the metal
 DESORB_DIST = 4.0      # A, oxyanion-to-substrate distance beyond which it is desorbed
+LIFT_RISE = 1.5        # A, halide rise above its own starting height that counts as lifted out (with no bond left)
 
 
 def _outward_height(atoms: Atoms, rec: SurfaceRecord, h: int) -> tuple[float, int]:
@@ -450,8 +451,11 @@ def oxyanion_state(initial: Atoms, final: Atoms, rec: SurfaceRecord, halide_atom
     Class (first that applies): ``desorbed`` > ``o_transfer_to_metal`` (an O left the halide and sits on a Pb)
     > ``x_o_cleavage`` (an O left the halide otherwise) > ``protonated`` (an oxyanion O gained a covalent H)
     > ``intact_bound`` (all X-O bonds kept, at least one O on Pb) > ``intact_unbound``.
-    Flags: ``below_metal_plane`` (halide below the outer Pb plane of its face), ``lifted_out`` (halide more than
-    2 A above that plane with no halide-Pb contact). Also reported: O-Pb bond count per O, the angle of the mean
+    Flags: ``below_metal_plane`` (halide below the outer Pb plane of its face), ``lifted_out`` (halide rose more
+    than ``LIFT_RISE`` above its own starting height and neither an O-Pb bond nor a halide-Pb contact remains).
+    The rise is measured against the start, not the Pb plane: an apical halide on an AX-terminated face already
+    sits ~3.2 A above its Pb, and an O-down oxyanion there stays bound through one O (monodentate), whereas on a
+    PbX2 face bound oxyanions are usually bi- or tridentate. Also reported: O-Pb bond count per O, the angle of the mean
     X->O direction to the outward normal (0 deg = O point to vacuum, 180 = into the slab), halide height."""
     h0, o0 = oxyanion_atoms(initial, halide_atom_id)
     ids = final.arrays["atom_id"]
@@ -475,6 +479,8 @@ def oxyanion_state(initial: Atoms, final: Atoms, rec: SurfaceRecord, halide_atom
     sub = sub[sub != h]
     d_sub = min_image_distances(cell, pbc, P[[h] + o], P[sub]).min()
     height, sign = _outward_height(final, rec, h)
+    height0, _ = _outward_height(initial, rec, h0)
+    rise = height - height0
     normal = cell[rec.normal_axis] / np.linalg.norm(cell[rec.normal_axis]) * sign
     vecs = []
     for k, j in enumerate(o):
@@ -499,13 +505,14 @@ def oxyanion_state(initial: Atoms, final: Atoms, rec: SurfaceRecord, halide_atom
     flags = []
     if height < 0:
         flags.append("below_metal_plane")
-    if height > 2.0 and d_xpb > 3.6:
+    if rise > LIFT_RISE and n_bound == 0 and d_xpb > 3.6:
         flags.append("lifted_out")
     return {"oxyanion_class": cls, "flags": flags, "n_oxygen": len(o),
             "x_o_A": [float(x) for x in d_xo], "o_pb_bonds": [int((d_opb[k] < PB_O_BOND).sum()) for k in range(len(o))],
             "o_bound_to_metal": n_bound, "min_o_pb_A": [float(d_opb[k].min()) for k in range(len(o))],
             "cleaved_o": cleaved, "o_on_metal_after_cleavage": to_metal, "protonated_o": protonated,
-            "o_orientation_deg": angle, "halide_height_A": height, "min_x_pb_A": float(d_xpb),
+            "o_orientation_deg": angle, "halide_height_A": height, "halide_rise_A": float(rise),
+            "min_x_pb_A": float(d_xpb),
             "reaction_accounting": "unchanged" if cls.startswith("intact") else
             "must be re-declared: the oxyanion is not the declared end state"}
 
