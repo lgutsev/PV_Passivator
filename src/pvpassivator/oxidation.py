@@ -20,7 +20,7 @@ from ase import Atoms
 
 from .ledger import Species, Reaction, register_unit, identify_units, _label_charge
 from .surface import SurfaceRecord, Site
-from .poses import ADSORBATE_ID0, tag_substrate, clash_report, min_image_distances, _rot, _align
+from .poses import ADSORBATE_ID0, tag_substrate, clash_report, min_image_distances, _rot, _align, remove_fragments
 
 # Idealised starting geometry per number of O atoms: (X-O length A, O-X-O angle deg, label, ox. state)
 # Lengths/angles are typical crystal/gas-phase values for iodine oxyanions; relaxation sets the real ones.
@@ -508,3 +508,139 @@ def oxyanion_state(initial: Atoms, final: Atoms, rec: SurfaceRecord, halide_atom
             "o_orientation_deg": angle, "halide_height_A": height, "min_x_pb_A": float(d_xpb),
             "reaction_accounting": "unchanged" if cls.startswith("intact") else
             "must be re-declared: the oxyanion is not the declared end state"}
+
+
+# ----------------------------------------------------------------------------- Pb(IO3)2 surface unit
+LEAD_IODATE = {"Pb": 1, "I": 2, "O": 6}
+
+
+@dataclass
+class LeadIodateSpec:
+    pose_id: str
+    pb_index: int
+    pb_atom_id: int
+    halide_indices: tuple[int, int]
+    halide_atom_ids: tuple[int, int]
+    oxygen_atom_ids: list[int]
+    x_pb_x_angle_deg: float
+    oxyanions: list[OxyanionSpec]
+
+    def unit_atom_ids(self) -> list[int]:
+        return [self.pb_atom_id, *self.halide_atom_ids, *self.oxygen_atom_ids]
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+
+def shared_lead_pairs(atoms: Atoms, rec: SurfaceRecord, face: str = "top") -> list[dict]:
+    """Pairs of in-plane halides bonded to the same outer Pb of ``face``: {pb, halides, angle_deg}.
+    angle ~ 90 is a cis pair (adjacent edges of the PbX4 square), ~ 180 trans."""
+    from itertools import combinations
+    from .surface import classify_halides
+    by_pb: dict[int, set[int]] = {}
+    for c in classify_halides(atoms, rec, face):
+        if c["class"] == "in_plane":
+            for p in c["pb"]:
+                by_pb.setdefault(p, set()).add(c["index"])
+    out = []
+    for pb, xs in sorted(by_pb.items()):
+        for x1, x2 in combinations(sorted(xs), 2):
+            v1, v2 = _mic_vector(atoms, pb, x1), _mic_vector(atoms, pb, x2)
+            ang = float(np.degrees(np.arccos(np.clip(v1 @ v2 / np.linalg.norm(v1) / np.linalg.norm(v2), -1, 1))))
+            out.append({"pb": int(pb), "halides": (int(x1), int(x2)), "angle_deg": ang})
+    return out
+
+
+def lead_iodate_poses(substrate: Atoms, rec: SurfaceRecord, pb: int, halides: tuple[int, int],
+                      n_oxygen: int = 3, preset: str | None = "O-down", max_poses: int | None = None,
+                      **pose_kwargs) -> list[tuple[Atoms, LeadIodateSpec]]:
+    """Oxidise two halides that share the surface Pb ``pb``; every clash-free combination of their
+    orientations. The second oxyanion is placed with the first already present, so the clash filter sees
+    both. ``preset`` selects ``oxyanion_preset_poses``; None uses ``oxyanion_poses`` (``pose_kwargs`` go to
+    either). Only the end state is built; see ``lead_iodate_record`` and ``remove_lead_iodate``."""
+    from .surface import find_sites
+    sub = substrate if "atom_id" in substrate.arrays else tag_substrate(substrate)
+    x1, x2 = halides
+    sites = {s.atom_index: s for face in ("top", "bottom") for s in find_sites(sub, rec, face)
+             if s.kind == "exposed_I"}
+    for x in (x1, x2):
+        if x not in sites:
+            raise ValueError(f"atom {x} is not an exposed halide")
+        if pb not in _nearest_pb(sub, x, k=6):
+            raise ValueError(f"halide {x} is not bonded to Pb {pb}")
+    if sites[x1].face != sites[x2].face:
+        raise ValueError("the two halides are on different faces")
+
+    def make(at, site):
+        if preset is None:
+            return oxyanion_poses(at, rec, site, n_oxygen, **pose_kwargs)
+        return oxyanion_preset_poses(at, rec, site, n_oxygen, preset, **pose_kwargs)
+    v1, v2 = _mic_vector(sub, pb, x1), _mic_vector(sub, pb, x2)
+    ang = float(np.degrees(np.arccos(np.clip(v1 @ v2 / np.linalg.norm(v1) / np.linalg.norm(v2), -1, 1))))
+    ids = sub.arrays["atom_id"]
+    out = []
+    for a1, s1 in make(sub, sites[x1]):
+        for a2, s2 in make(a1, sites[x2]):
+            o_ids = [int(i) for i in a2.arrays["atom_id"][len(sub):]]
+            spec = LeadIodateSpec(f"Pb(IO{n_oxygen})2@Pb{pb}/{s1.pose_id.split('/', 1)[1]}+{s2.pose_id.split('/', 1)[1]}",
+                                  int(pb), int(ids[pb]), (int(x1), int(x2)), (int(ids[x1]), int(ids[x2])),
+                                  o_ids, ang, [s1, s2])
+            out.append((a2, spec))
+            if max_poses and len(out) >= max_poses:
+                return out
+    return out
+
+
+def lead_iodate_record(rec: SurfaceRecord, atoms: Atoms, spec: LeadIodateSpec) -> SurfaceRecord:
+    """Surface record for the structure with both halides oxidised, declaring the Pb(IO_n)2 unit."""
+    r = rec
+    for s in spec.oxyanions:
+        r = oxidised_record(r, atoms, s)
+    r.surface_id = f"{rec.surface_id}__Pb(IO{spec.oxyanions[0].n_oxygen})2@Pb{spec.pb_index}"
+    r.defects = r.defects + [{"label": f"Pb(IO{spec.oxyanions[0].n_oxygen})2 unit at Pb {spec.pb_index}",
+                              "pose_id": spec.pose_id, "unit_atom_ids": spec.unit_atom_ids(),
+                              "x_pb_x_angle_deg": spec.x_pb_x_angle_deg}]
+    return r
+
+
+def remove_lead_iodate(atoms: Atoms, rec: SurfaceRecord, spec: LeadIodateSpec,
+                       io_bond: float | None = None) -> tuple[Atoms, SurfaceRecord]:
+    """Remove the declared Pb(IO_n)2 unit, leaving a PbX2 vacancy (``remove_fragments`` conventions).
+    Atoms are found by ``atom_id``. Refuses if any unit O is farther than ``io_bond`` from its halide in
+    ``atoms`` (e.g. after relaxation), because the removed group would then not be the declared unit."""
+    io_bond = IO_BOND if io_bond is None else io_bond
+    ids = {int(i): k for k, i in enumerate(atoms.arrays["atom_id"])}
+    missing = [i for i in spec.unit_atom_ids() if i not in ids]
+    if missing:
+        raise ValueError(f"atom ids {missing} of the unit are not in the structure")
+    for s, xid in zip(spec.oxyanions, spec.halide_atom_ids):
+        x = ids[xid]
+        o = [k for k in range(len(atoms)) if atoms.arrays["fragment_id"][k] == atoms.arrays["fragment_id"][x]
+             and atoms[k].symbol == "O"]
+        if len(o) != s.n_oxygen:
+            raise ValueError(f"halide atom_id {xid} carries {len(o)} O, expected {s.n_oxygen}")
+        d = atoms.get_distances(x, o, mic=True)
+        if d.max() > io_bond:
+            raise ValueError(f"oxyanion at halide atom_id {xid} is not intact (X-O up to {d.max():.2f} A); "
+                             "the removed group would not be the declared unit")
+    new, r = remove_fragments(atoms, rec, [ids[spec.pb_atom_id], *(ids[i] for i in spec.halide_atom_ids)],
+                              f"V_PbI2(Pb(IO{spec.oxyanions[0].n_oxygen})2 removed)@Pb{spec.pb_index}")
+    removed = {e: rec.composition.get(e, 0) - r.composition.get(e, 0) for e in rec.composition}
+    want = {"Pb": 1, "I": 2, "O": 2 * spec.oxyanions[0].n_oxygen}
+    if {k: v for k, v in removed.items() if v} != want:
+        raise ValueError(f"removed {removed}, expected {want}")
+    return new, r
+
+
+def lead_iodate_extraction_reaction(unit_slab: Species, vacancy_slab: Species, bulk: Species) -> Reaction:
+    """slab(Pb(IO3)2) -> slab(V_PbI2) + (1/Z) Pb(IO3)2(bulk, Z formula units per cell).
+    ``bulk`` must be a declared Species whose composition is Z x PbI2O6; its energy is never defaulted
+    (``Reaction.delta_e`` refuses to run without it)."""
+    z = bulk.composition.get("Pb", 0)
+    if z < 1 or {e: n for e, n in bulk.composition.items() if n} != {e: z * n for e, n in LEAD_IODATE.items()}:
+        raise ValueError(f"bulk reference {bulk.name} has composition {dict(bulk.composition)}, "
+                         "not an integer multiple of Pb(IO3)2")
+    rx = Reaction([(1, unit_slab)], [(1, vacancy_slab), (1 / z, bulk)],
+                  label="surface Pb(IO3)2 unit -> PbI2 vacancy + bulk Pb(IO3)2", energy_kind="reaction")
+    rx.assert_balanced()
+    return rx

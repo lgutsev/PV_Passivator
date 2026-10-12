@@ -226,3 +226,55 @@ def test_o_down_and_x_down_presets(tmp_path):
     assert abs(np.cross(u[0], u[1]) @ bridge) / np.linalg.norm(np.cross(u[0], u[1])) > 0.999
     with pytest.raises(ValueError):
         oxyanion_preset_poses(atoms, rec, site, 3, "sideways")
+
+
+def _toy_2x2(tmp_path):
+    at = toy_slab(nlayers=5).repeat((1, 2, 2))
+    at.write(tmp_path / "POSCAR", format="vasp")
+    return load_surface(tmp_path / "POSCAR", surface_id="toy2x2")
+
+
+def test_lead_iodate_unit_build_remove_and_reaction(tmp_path):
+    from pvpassivator.oxidation import (shared_lead_pairs, lead_iodate_poses, lead_iodate_record,
+                                        remove_lead_iodate, lead_iodate_extraction_reaction)
+    atoms, rec = _toy_2x2(tmp_path)
+    pairs = shared_lead_pairs(atoms, rec, "top")
+    assert pairs and {round(p["angle_deg"]) for p in pairs} == {90, 180}
+    cis = next(p for p in pairs if round(p["angle_deg"]) == 90)
+    poses = lead_iodate_poses(atoms, rec, cis["pb"], cis["halides"], 3, "O-down")
+    assert poses
+    full, spec = poses[0]
+    assert len(full) == len(atoms) + 6 and len(spec.unit_atom_ids()) == 9
+    r2 = lead_iodate_record(rec, full, spec)
+    assert r2.formal_units.get("IO3-") == 2 and r2.formal_charge == rec.formal_charge
+    assert r2.composition["O"] == 6 and "unit_atom_ids" in r2.defects[-1]
+    vac, r3 = remove_lead_iodate(full, r2, spec)
+    assert len(vac) == len(full) - 9
+    assert r3.composition["Pb"] == rec.composition["Pb"] - 1 and r3.composition["I"] == rec.composition["I"] - 2
+    assert "O" not in r3.composition and r3.formal_charge == 0
+    bulk = Species("Pb(IO3)2(bulk,Z=4)", {"Pb": 4, "I": 8, "O": 24}, kind="bulk")
+    rx = lead_iodate_extraction_reaction(Species("slab_PbIO32", r2.composition),
+                                         Species("slab_VPbI2", r3.composition), bulk)
+    assert rx.products[1][0] == pytest.approx(0.25)
+    with pytest.raises(Exception):          # energies are never defaulted
+        rx.delta_e({"slab_PbIO32": 0.0, "slab_VPbI2": 0.0})
+    with pytest.raises(ValueError):
+        lead_iodate_extraction_reaction(Species("a", r2.composition), Species("b", r3.composition),
+                                        Species("PbI2", {"Pb": 1, "I": 2}))
+    # a relaxed structure whose iodate lost an O is not the declared unit: refuse to remove it
+    broken = full.copy()
+    broken.positions[-1] += 3.0 * np.eye(3)[rec.normal_axis]
+    with pytest.raises(ValueError, match="not intact"):
+        remove_lead_iodate(broken, r2, spec)
+
+
+def test_lead_iodate_rejects_halide_not_on_that_pb(tmp_path):
+    from pvpassivator.oxidation import shared_lead_pairs, lead_iodate_poses
+    atoms, rec = _toy_2x2(tmp_path)
+    pairs = shared_lead_pairs(atoms, rec, "top")
+    other_pb = next(p["pb"] for p in pairs if p["pb"] != pairs[0]["pb"])
+    x1, x2 = pairs[0]["halides"]
+    if other_pb in [p["pb"] for p in pairs if x1 in p["halides"] and x2 in p["halides"]]:
+        pytest.skip("toy geometry: both halides also bridge the other Pb")
+    with pytest.raises(ValueError, match="not bonded"):
+        lead_iodate_poses(atoms, rec, other_pb, (x1, x2))
