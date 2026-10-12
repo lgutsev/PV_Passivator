@@ -14,6 +14,7 @@ Charge-balanced preparation and DFT-backed analysis for passivated FAPbI3 surfac
 | Surface iodide oxyanions IO⁻…IO₄⁻ (`oxidation.py`) | implemented and unit-tested: idealised end states in scanned orientations, balanced `slab + n/2 O2 -> slab(IO_n-)` ledger entry; O2 is a reservoir only, no O2–surface paths; relaxed poses grouped by O–Pb bonding + first-shell fingerprint (`group_relaxed_poses`); O-down/X-down presets; Pb(IO₃)₂ surface unit with PbI₂-vacancy removal and a declared bulk reference; r2SCAN job bundle with a triplet O₂ reference (`vaspprep.oxidation_bundle`) and optional declared O₂ corrections (`ledger.ReferenceCorrection`); water next to an oxyanion; `pvpass oxidize` CLI |
 | Structure renders in the house style (`render.py`, `compose.py`, `docs/FIGURE_STYLE.md`) | implemented; cutout geometry unit-tested (complete octahedra), fragment highlight, multi-panel composer, JSON web export; OVITO render smoke-tested (optional extra `[render]`) |
 | MLIP benchmark vs archived DFT (`benchmark.py`, `examples/scripts/run_mlip_singlepoints.py`, `analyze_mlip_benchmark.py`) | implemented: energy-only single points on DFT final structures, compared within one settings group (same k-mesh) via same-composition differences, per-element-offset LOO residuals and composition-matched E_ads |
+| Consistent DFT label sets (`examples/scripts/prepare_label_set.py`, `stage_label_set.py`, `labels.py`, `pvpass labels`) | implemented: one cell/k-mesh/profile per reaction family, cluster package with tested scripts, results reader with balance, settings and k-point checks |
 | UI | not started (pose generation is in `poses.py`, r2SCAN job prep in `vaspprep.py`) |
 
 ## Usage
@@ -23,4 +24,5 @@ pip install -e .[dev]
 pytest
 pvpass reproduce examples/recovered_cases_pbe335.json
 pvpass oxidize CONTCAR --out iodate_starts --n 3 --preset O-down
+pvpass labels <finished label-set package>      # E_ads per reaction + k-point check; refuses unfinished steps
 ```

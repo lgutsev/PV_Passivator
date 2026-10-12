@@ -36,6 +36,9 @@ def main(argv=None) -> int:
     o.add_argument("--preset", default="scan", choices=["scan", "O-down", "X-down"],
                    help="scan = full lone-pair/phi/lift scan; O-down / X-down = named bonding limits")
     o.add_argument("--format", default="vasp", help="ASE format for the structure file")
+    lb = sub.add_parser("labels", help="reaction energies and k-point check from a finished label-set package")
+    lb.add_argument("package", help="package folder with manifest.json, inputs/ and outputs/")
+    lb.add_argument("--json", help="write the full result here")
     a = ap.parse_args(argv)
 
     if a.cmd == "reproduce":
@@ -62,6 +65,26 @@ def main(argv=None) -> int:
         print(json.dumps({k: m[k] for k in ("n_source_frames", "issues", "status")}, indent=1))
     elif a.cmd == "oxidize":
         return _oxidize(a)
+    elif a.cmd == "labels":
+        from .labels import analyze
+        r = analyze(a.package)
+        for row in r["reactions"]:
+            e = row["E_ads_eV"]
+            print(f"{row['name']:10s} {('%+.3f eV' % e) if e is not None else 'n/a':>11s}  "
+                  f"{'missing: ' + ', '.join(row['missing']) if row['missing'] else ''}")
+        kc = r["kpoint_check"]
+        if kc:
+            for n, v in kc["verdicts"].items():
+                print(f"k-check {n}: " + ("not available" if v is None else
+                      f"k-error {v['k_error_eV']:+.4f} eV -> {'PASS' if v['pass'] else 'FAIL'} (tol {kc['tolerance_eV']} eV)"))
+        if r["settings_problem"]:
+            print("WARNING:", r["settings_problem"])
+        print(f"{r['n_static_ok']}/{r['n_static']} statics usable; {len(r['problems'])} steps with problems")
+        for k, v in r["problems"].items():
+            print(f"  {k}: {'; '.join(v)}")
+        if a.json:
+            open(a.json, "w").write(json.dumps(r, indent=1))
+        return 0 if not r["problems"] else 1
     return 0
 
 
