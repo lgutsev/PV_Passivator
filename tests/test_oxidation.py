@@ -68,3 +68,38 @@ def test_rejects_non_halide_site(tmp_path):
     pb = [s for s in find_sites(atoms, rec, "top") if s.kind == "undercoordinated_Pb"][0]
     with pytest.raises(ValueError):
         oxyanion_poses(atoms, rec, pb)
+
+
+def test_group_relaxed_poses_merges_duplicates_and_separates_motifs(tmp_path):
+    from pvpassivator.oxidation import group_relaxed_poses, oxyanion_fingerprint
+    atoms, rec = _surface(tmp_path)
+    site = _top_inplane_iodide(atoms, rec)
+    poses = oxyanion_poses(atoms, rec, site, n_oxygen=3)
+    hid = poses[0][1].halide_atom_id
+    a = poses[0][0]
+    # same minimum: small noise, and the O atoms listed in a different order
+    b = a.copy()
+    b.positions += np.random.default_rng(0).normal(0, 0.01, b.positions.shape)
+    b = b[list(range(len(b) - 3)) + [len(b) - 1, len(b) - 3, len(b) - 2]]
+    # a different motif: a pose whose fingerprint differs
+    fa = oxyanion_fingerprint(a, hid)
+    other = next(f for f, _ in poses[1:]
+                 if any(np.abs(fa[k] - oxyanion_fingerprint(f, hid)[k])[np.isfinite(fa[k])].max() > 0.3
+                        for k in ("O-Pb", "I-Pb")))
+    groups = group_relaxed_poses([other, a, b], hid, energies=[-1.0, -1.5, -1.505], labels=["c", "a", "b"])
+    assert [g["representative"] for g in groups] == ["b", "c"]       # lowest energy first
+    assert groups[0]["multiplicity"] == 2 and set(groups[0]["members"]) == {"a", "b"}
+    assert groups[0]["energy_spread"] == pytest.approx(0.005)
+    # energies only split geometric twins when energy_tol is given
+    assert len(group_relaxed_poses([a, b], hid, energies=[0.0, 0.1])) == 1
+    assert len(group_relaxed_poses([a, b], hid, energies=[0.0, 0.1], energy_tol=0.02)) == 2
+
+
+def test_fingerprint_refuses_structures_without_pose_arrays(tmp_path):
+    from pvpassivator.oxidation import oxyanion_fingerprint
+    atoms, rec = _surface(tmp_path)
+    full, spec = oxyanion_poses(atoms, rec, _top_inplane_iodide(atoms, rec), n_oxygen=3)[0]
+    bare = full.copy()
+    del bare.arrays["origin"]
+    with pytest.raises(ValueError, match="origin"):
+        oxyanion_fingerprint(bare, spec.halide_atom_id)
