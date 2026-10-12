@@ -56,6 +56,11 @@ PROFILES: dict[str, dict] = {
                                       "LWAVE": ".FALSE.", "LCHARG": ".FALSE."},
     "r2scan_d3bj_v1/molecule_static": {**_COMMON_R2SCAN, "IBRION": -1, "NSW": 0, "EDIFF": 1e-6,
                                        "NELM": 200, "LCHARG": ".FALSE."},
+    # electrostatics test (charged slabs, Coulomb kernel truncation vs dipole correction); fixed geometry, PBE
+    "pbe_electrostatics_test/static": {"GGA": "PE", "LASPH": ".TRUE.", "ENCUT": 400, "PREC": "Accurate",
+                                       "ISMEAR": 0, "SIGMA": 0.05, "LREAL": "Auto", "IBRION": -1, "NSW": 0,
+                                       "EDIFF": 1e-6, "NELM": 200, "LVHAR": ".TRUE.", "LWAVE": ".FALSE.",
+                                       "LCHARG": ".FALSE.", "LDIPOL": ".TRUE.", "IDIPOL": None},
     # legacy, for comparison only
     "pbe_d3zero_legacy/relax": {"IVDW": 11, "ENCUT": 520, "PREC": "Accurate", "LASPH": ".TRUE.",
                                 "ISMEAR": 0, "SIGMA": 0.05, "LREAL": "Auto", "IBRION": 2, "ISIF": 4,
