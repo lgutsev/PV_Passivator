@@ -167,11 +167,14 @@ def write_job(atoms: Atoms, out_dir: str | Path, profile: str, role: str, *, cel
         fixed = [k for k, i in enumerate(ids) if i in set(fixed_atom_ids)]
         a.set_constraint(FixAtoms(indices=fixed))
     from ase.io import write
-    write(out / "POSCAR", a, format="vasp", direct=True, sort=False)
-    (out / "INCAR").write_text("".join(f"{k} = {_fmt(v)}\n" for k, v in incar.items()))
-    (out / "KPOINTS").write_text(f"pvpassivator {profile}\n0\n{'Gamma' if all(k == 1 for k in kpoints) else 'Gamma'}\n"
+    import io
+    buf = io.StringIO()
+    write(buf, a, format="vasp", direct=True, sort=False)
+    _write_lf(out / "POSCAR", buf.getvalue())
+    _write_lf(out / "INCAR", "".join(f"{k} = {_fmt(v)}\n" for k, v in incar.items()))
+    _write_lf(out / "KPOINTS", f"pvpassivator {profile}\n0\n{'Gamma' if all(k == 1 for k in kpoints) else 'Gamma'}\n"
                                  f"{kpoints[0]} {kpoints[1]} {kpoints[2]}\n0 0 0\n")
-    (out / "POTCAR.spec").write_text("\n".join(pots) + "\n")
+    _write_lf(out / "POTCAR.spec", "\n".join(pots) + "\n")
     fp = normalized_fingerprint({k: str(v) for k, v in incar.items()}, " ".join(map(str, kpoints)))
     fp["POTCARS"] = pots
     fph = hashlib.sha256(json.dumps(fp, sort_keys=True).encode()).hexdigest()[:16]
@@ -179,9 +182,14 @@ def write_job(atoms: Atoms, out_dir: str | Path, profile: str, role: str, *, cel
     spec = JobSpec(job_id or f"{role}-{sh}", role, profile, sh, parents or [], nelect, cell_charge,
                    multiplicity, kpoints, species, pots, incar, [int(i) for i in ids], fph,
                    notes=notes + PROFILE_NOTES.get(profile.split("/")[0], []))
-    (out / "job.json").write_text(json.dumps({"schema_version": "job/1", "profile_version": PROFILE_VERSION,
+    _write_lf(out / "job.json", json.dumps({"schema_version": "job/1", "profile_version": PROFILE_VERSION,
                                               **asdict(spec)}, indent=1))
     return spec
+
+
+def _write_lf(path: Path, text: str) -> None:
+    """VASP inputs go to Linux clusters: always LF line endings, whatever the local platform."""
+    Path(path).write_text(text.replace("\r\n", "\n"), encoding="utf-8", newline="\n")
 
 
 def _fmt(v):
@@ -248,7 +256,7 @@ def adsorption_bundle(root: str | Path, case_id: str, slab: Atoms, slab_rec, com
             "fixed_bottom_A": fix_bottom_A, "kpoints": kp, "jobs": jobs,
             "cache_note": "bare_slab and ref jobs are shared across cases with identical fingerprint + structure hash",
             "status": "prepared (not submitted)"}
-    (root / "bundle.json").write_text(json.dumps(plan, indent=1))
+    _write_lf(root / "bundle.json", json.dumps(plan, indent=1))
     return plan
 
 
@@ -351,5 +359,67 @@ def oxidation_bundle(root: str | Path, case_id: str, slab: Atoms, slab_rec, prod
             "o2_reference": {"multiplicity": m, "ISPIN": 2, "NUPDOWN": m - 1, "box_A": o2_box,
                              "start_bond_A": O2_BOND_A},
             "fixed_bottom_A": fix_bottom_A, "kpoints": kp, "jobs": jobs, "status": "prepared (not submitted)"}
-    (root / "bundle.json").write_text(json.dumps(plan, indent=1))
+    _write_lf(root / "bundle.json", json.dumps(plan, indent=1))
     return plan
+
+
+def to_common_cell(atoms: Atoms, normal_axis: int, cell: np.ndarray, max_strain: float = 0.03,
+                   max_shear_deg: float = 7.0, rigid_fragments: bool = True) -> tuple[Atoms, dict]:
+    """Map a slab onto ``cell`` (one fixed cell for every member of a reaction).
+
+    Lattice ions follow their in-plane fractional coordinates; positions along the surface normal keep their absolute
+    distance (the vacuum length may differ). With ``rigid_fragments`` every covalent fragment (FA+, a passivator)
+    moves as a rigid body with its centroid, so undoing a cell shear does not bend molecules. Refuses an in-plane
+    length change above ``max_strain`` or an in-plane angle change above ``max_shear_deg``. Returns the mapped atoms
+    (arrays carried over) and a report of the strain and shear removed."""
+    old = atoms.cell.array
+    new = np.asarray(cell, float)
+    ip = [k for k in range(3) if k != normal_axis]
+
+    def plane_normal(c):
+        # the true surface normal is perpendicular to both in-plane vectors; the third lattice vector may be tilted
+        n = np.cross(c[ip[0]], c[ip[1]])
+        n /= np.linalg.norm(n)
+        return n if np.dot(n, c[normal_axis]) > 0 else -n
+    n_old, n_new = plane_normal(old), plane_normal(new)
+    strain = {}
+    for k in ip:
+        strain[k] = float(np.linalg.norm(new[k]) / np.linalg.norm(old[k]) - 1)
+        if abs(strain[k]) > max_strain:
+            raise ValueError(f"in-plane axis {k}: strain {strain[k]:+.3%} exceeds {max_strain:.0%}")
+
+    def angle(c):
+        u, v = c[ip[0]], c[ip[1]]
+        return float(np.degrees(np.arccos(np.dot(u, v) / np.linalg.norm(u) / np.linalg.norm(v))))
+    shear = angle(new) - angle(old)
+    if abs(shear) > max_shear_deg:
+        raise ValueError(f"in-plane angle changes by {shear:+.2f} deg (> {max_shear_deg} deg)")
+
+    B_old = np.array([old[k] for k in ip])                 # in-plane basis rows
+
+    def mapped(pos):
+        h = pos @ n_old                                    # height along the true normal
+        par = pos - h[:, None] * n_old                     # in-plane part, expressed in the in-plane basis
+        f, *_ = np.linalg.lstsq(B_old.T, par.T, rcond=None)
+        return f.T @ np.array([new[k] for k in ip]) + h[:, None] * n_new
+
+    pos = mapped(atoms.positions)
+    n_rigid = 0
+    if rigid_fragments:
+        from .poses import fragments
+        ionic = {"Pb", "Sn", "I", "Br", "Cl", "Cs", "K", "Na", "Rb"}
+        sym = atoms.get_chemical_symbols()
+        for g in fragments(atoms):
+            if len(g) < 2 or all(sym[i] in ionic for i in g):
+                continue
+            v = atoms.get_distances(g[0], g, mic=True, vector=True)        # whole fragment around its first atom
+            whole = atoms.positions[g[0]] + v
+            c = whole.mean(axis=0)
+            pos[g] = mapped(c[None])[0] + (whole - c)
+            n_rigid += 1
+    out = atoms.copy()
+    out.set_cell(new, scale_atoms=False)
+    out.positions = pos
+    out.wrap()
+    return out, {"inplane_strain": [strain[k] for k in ip], "inplane_shear_removed_deg": shear,
+                 "rigid_fragments": n_rigid}

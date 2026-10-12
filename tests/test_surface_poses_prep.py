@@ -200,3 +200,48 @@ def test_classify_halides_on_toy_slab(tmp_path):
     assert cls[len(a)]["class"] == "apical" and cls[len(a) + 1]["class"] == "adatom"
     sites = {s.atom_index: s for s in find_sites(a, rec, "top") if s.kind == "exposed_I"}
     assert {s.halide_class for s in sites.values()} >= {"in_plane"}
+
+
+def test_to_common_cell_keeps_heights_and_fractions():
+    from pvpassivator.vaspprep import to_common_cell
+    at = toy_slab(nlayers=5).repeat((1, 2, 2))
+    at.set_array("atom_id", np.arange(len(at)))
+    sheared = at.copy()
+    c = sheared.cell.array.copy()
+    c[1] *= 1.01
+    c[2] = c[2] + 0.06 * c[1]                         # ~3.4 deg in-plane shear, as in ISIF=4 artefacts
+    sheared.set_cell(c, scale_atoms=True)
+    target = at.cell.array.copy()
+    target[0] *= 1.1                                    # longer vacuum along the normal (x)
+    m, rep = to_common_cell(sheared, 0, target)
+    assert np.allclose(m.cell.array, target)
+    assert np.allclose(m.positions[:, 0], sheared.positions[:, 0])          # heights unchanged
+    assert np.array_equal(m.arrays["atom_id"], at.arrays["atom_id"])
+    assert abs(rep["inplane_shear_removed_deg"]) > 3 and rep["rigid_fragments"] >= 1
+    # lattice ions follow fractions; molecules keep their internal geometry exactly
+    sym = np.array(at.get_chemical_symbols())
+    pb = np.flatnonzero(sym == "Pb")
+    assert np.allclose(m.get_scaled_positions()[pb][:, 1:], sheared.get_scaled_positions()[pb][:, 1:])
+    org = np.flatnonzero(np.isin(sym, ["C", "N", "H"]))
+    d0 = sheared.get_all_distances(mic=True)[np.ix_(org, org)]
+    d1 = m.get_all_distances(mic=True)[np.ix_(org, org)]
+    assert np.allclose(d0[d0 < 2.5], d1[d0 < 2.5], atol=1e-6)
+    # a tilted normal lattice vector (ISIF=4 artefact) must not shift molecules against the lattice
+    tilted = at.copy()
+    c = tilted.cell.array.copy()
+    c[0] = c[0] + 0.1 * np.linalg.norm(c[0]) * c[1] / np.linalg.norm(c[1])     # ~5.7 deg tilt of the vacuum axis
+    tilted.set_cell(c, scale_atoms=False)
+    t, _ = to_common_cell(tilted, 0, at.cell.array)
+    assert np.allclose(t.get_all_distances(mic=True), at.get_all_distances(mic=True), atol=1e-6)
+    bad = target.copy()
+    bad[1] *= 1.05
+    with pytest.raises(ValueError, match="strain"):
+        to_common_cell(at, 0, bad)
+
+
+def test_vasp_inputs_have_lf_line_endings(tmp_path):
+    from ase import Atoms
+    i2m = Atoms("I2", positions=[[0, 0, 0], [0, 0, 2.7]], cell=[15, 15, 15], pbc=True)
+    write_job(i2m, tmp_path / "j", "r2scan_d3bj_v1/molecule_static", "reference", cell_charge=-1, multiplicity=2)
+    for f in ("INCAR", "POSCAR", "KPOINTS", "POTCAR.spec", "job.json"):
+        assert b"\r" not in (tmp_path / "j" / f).read_bytes(), f
