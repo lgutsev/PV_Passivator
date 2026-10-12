@@ -26,6 +26,16 @@ def main(argv=None) -> int:
     n.add_argument("--save-interval", type=int, default=1)
     n.add_argument("--source-kind", choices=["DFT", "MLIP"], default="DFT")
     n.add_argument("--overwrite", action="store_true")
+    o = sub.add_parser("oxidize", help="replace one surface halide by an iodine oxyanion; write start structures")
+    o.add_argument("structure", help="slab file readable by ASE (POSCAR, CONTCAR, extxyz)")
+    o.add_argument("--out", required=True, help="output folder (must be empty or new)")
+    o.add_argument("--n", type=int, default=3, choices=[1, 2, 3, 4], help="number of O (IO-, IO2-, IO3-, IO4-)")
+    o.add_argument("--halide", type=int, help="atom index of the halide; default: first site of --site-class")
+    o.add_argument("--face", default="top", choices=["top", "bottom"])
+    o.add_argument("--site-class", default="in_plane", choices=["in_plane", "apical", "subsurface", "adatom"])
+    o.add_argument("--preset", default="scan", choices=["scan", "O-down", "X-down"],
+                   help="scan = full lone-pair/phi/lift scan; O-down / X-down = named bonding limits")
+    o.add_argument("--format", default="vasp", help="ASE format for the structure file")
     a = ap.parse_args(argv)
 
     if a.cmd == "reproduce":
@@ -50,6 +60,49 @@ def main(argv=None) -> int:
                                source_kind=a.source_kind, overwrite=a.overwrite)
         m = export_frames(cfg)
         print(json.dumps({k: m[k] for k in ("n_source_frames", "issues", "status")}, indent=1))
+    elif a.cmd == "oxidize":
+        return _oxidize(a)
+    return 0
+
+
+def _oxidize(a) -> int:
+    from pathlib import Path
+    from ase.io import write
+    from .surface import load_surface, find_sites
+    from .oxidation import oxyanion_poses, oxyanion_preset_poses, oxidised_record
+    out = Path(a.out)
+    if out.exists() and any(out.iterdir()):
+        print(f"{out} is not empty; refusing to overwrite", file=sys.stderr)
+        return 2
+    atoms, rec = load_surface(a.structure, fmt=a.format)
+    sites = [s for s in find_sites(atoms, rec, a.face) if s.kind == "exposed_I"]
+    if a.halide is not None:
+        sites = [s for s in sites if s.atom_index == a.halide]
+        if not sites:
+            print(f"atom {a.halide} is not an exposed halide on the {a.face} face", file=sys.stderr)
+            return 2
+    else:
+        sites = sorted((s for s in sites if s.halide_class == a.site_class), key=lambda s: s.atom_index)
+        if not sites:
+            print(f"no {a.site_class} halide on the {a.face} face", file=sys.stderr)
+            return 2
+    site = sites[0]
+    poses = (oxyanion_poses(atoms, rec, site, a.n) if a.preset == "scan"
+             else oxyanion_preset_poses(atoms, rec, site, a.n, a.preset))
+    out.mkdir(parents=True, exist_ok=True)
+    specs = []
+    for k, (full, spec) in enumerate(poses):
+        d = out / f"pose_{k:02d}"
+        d.mkdir()
+        write(d / "start.extxyz", full, format="extxyz")
+        write(d / "POSCAR", full, format="vasp", direct=True)
+        r = oxidised_record(rec, full, spec)
+        specs.append({"folder": d.name, **spec.to_dict(), "formal_charge": r.formal_charge,
+                      "composition": r.composition})
+    (out / "specs.json").write_text(json.dumps({"source": str(a.structure), "site": site.site_id,
+                                                "halide_class": site.halide_class, "n_oxygen": a.n,
+                                                "preset": a.preset, "poses": specs}, indent=1))
+    print(f"{len(poses)} poses for {site.site_id} ({site.halide_class}) -> {out}")
     return 0
 
 

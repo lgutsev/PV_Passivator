@@ -320,3 +320,42 @@ def test_declared_o2_correction_is_applied_only_when_passed():
         ReferenceCorrection("no source", O2_REFERENCE.name, -0.5, "  ")
     with pytest.raises(ValueError):
         rx.delta_e(E, corrections=(ReferenceCorrection("wrong", "H2(g)", 0.1, "x"),))
+
+
+def test_water_next_to_oxyanion(tmp_path):
+    from pvpassivator.oxidation import oxyanion_water_poses, water_passivator
+    atoms, rec = _toy_2x2(tmp_path)
+    site = _top_inplane_iodide(atoms, rec)
+    full, spec = oxyanion_preset_poses_first(atoms, rec, site)
+    w = water_passivator()
+    assert w.total_charge == 0 and w.multiplicity == 1 and w.atoms.get_chemical_formula() == "H2O"
+    poses = oxyanion_water_poses(full, rec, spec.halide_atom_id, max_poses=40)
+    assert poses
+    oxy_o = np.where(full.arrays["origin"] == 1)[0]
+    for f, sp in poses:
+        wat = np.where(f.arrays["origin"] == 2)[0]
+        assert len(wat) == 3 and len(f) == len(full) + 3
+        assert np.all(f.arrays["origin"][oxy_o] == 1)          # oxyanion O keep their own tag
+        if sp.site_kind == "oxyanion_O":
+            dmin = min(f.get_distance(i, j, mic=True) for i in wat if f[i].symbol == "H" for j in oxy_o)
+            assert dmin == pytest.approx(sp.height, abs=1e-6)
+
+
+def oxyanion_preset_poses_first(atoms, rec, site):
+    from pvpassivator.oxidation import oxyanion_preset_poses
+    return oxyanion_preset_poses(atoms, rec, site, 3, "O-down")[0]
+
+
+def test_cli_oxidize_writes_poses_and_refuses_overwrite(tmp_path):
+    import json
+    from pvpassivator.cli import main
+    at = toy_slab(nlayers=5).repeat((1, 2, 2))
+    at.write(tmp_path / "POSCAR", format="vasp")
+    out = tmp_path / "ox"
+    assert main(["oxidize", str(tmp_path / "POSCAR"), "--out", str(out), "--preset", "O-down", "--n", "3"]) == 0
+    d = json.loads((out / "specs.json").read_text())
+    assert d["halide_class"] == "in_plane" and d["poses"]
+    assert all(p["formal_charge"] == 0 for p in d["poses"])
+    assert (out / d["poses"][0]["folder"] / "start.extxyz").exists()
+    assert main(["oxidize", str(tmp_path / "POSCAR"), "--out", str(out)]) == 2
+    assert main(["oxidize", str(tmp_path / "POSCAR"), "--out", str(tmp_path / "x"), "--halide", "0"]) == 2

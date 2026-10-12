@@ -57,8 +57,11 @@ motivates the dedup item below.
    NUPDOWN = 2, ≥ 15 Å box), with a fingerprint check that all three share functional/cutoff/PAW settings.
 6. **Declared O₂ reference correction** in the ledger: an optional, explicitly named per-O₂ energy shift with its source,
    applied in `delta_e` only when passed. Never a built-in default.
-7. **Water next to an oxyanion**: reuse `generate_poses` with the oxidised slab as substrate.
-8. **CLI**: `pvpass oxidize <POSCAR> --halide <idx> --n 3 --out <dir>` writing start structures plus a JSON of specs.
+7. ~~**Water next to an oxyanion**~~ Done: `oxyanion_water_poses` (H-bond to each oxyanion O, or water O over a nearby
+   Pb; water carries origin 2) and `water_passivator` (declared neutral singlet H₂O).
+8. ~~**CLI**~~ Done: `pvpass oxidize <file> --out <dir> [--n 3] [--preset scan|O-down|X-down] [--halide idx | --site-class
+   in_plane] [--face top]` writes `pose_NN/{start.extxyz,POSCAR}` and `specs.json`; refuses a non-empty output folder.
+   Items 2–6 are done too; see `docs/HANDOFF_2026-10-11.md`.
 
 ## Repository conventions to keep
 

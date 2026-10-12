@@ -644,3 +644,45 @@ def lead_iodate_extraction_reaction(unit_slab: Species, vacancy_slab: Species, b
                   label="surface Pb(IO3)2 unit -> PbI2 vacancy + bulk Pb(IO3)2", energy_kind="reaction")
     rx.assert_balanced()
     return rx
+
+
+# ----------------------------------------------------------------------------- water next to an oxyanion
+WATER_OH_A, WATER_HOH_DEG = 0.9572, 104.52
+
+
+def water_passivator():
+    """Neutral, closed-shell H2O as a declared Passivator (charge 0, singlet; donor = O)."""
+    from .poses import Passivator, Component
+    t = np.radians(WATER_HOH_DEG / 2)
+    w = Atoms("OH2", positions=[[0, 0, 0], [WATER_OH_A * np.sin(t), 0, WATER_OH_A * np.cos(t)],
+                                [-WATER_OH_A * np.sin(t), 0, WATER_OH_A * np.cos(t)]])
+    return Passivator("H2O", w, 0, 1, [Component("H2O", [0, 1, 2], 0, "H2O")], "neutral_donor",
+                      donor_indices=[0], source="idealised gas-phase geometry")
+
+
+def oxyanion_water_poses(atoms: Atoms, rec: SurfaceRecord, halide_atom_id: int, hbond_heights=(1.8, 2.1),
+                         pb_heights=(2.5, 2.8), pb_radius: float = 5.0, tilts=(0.0, 30.0), n_azimuth: int = 6,
+                         max_poses: int = 100, seed: int = 0, origin_tag: int = 2):
+    """One water next to the oxyanion of ``halide_atom_id`` in an oxidised structure, two motifs:
+      hbond  - a water H ``hbond_heights`` A above each oxyanion O (O-H...O donor bond);
+      Pb     - the water O ``pb_heights`` A above each surface Pb within ``pb_radius`` of the halide.
+    Uses ``generate_poses`` (rigid water, clash filter); the water gets ``origin_tag`` so it stays
+    distinct from the oxyanion O (origin 1)."""
+    from .poses import generate_poses
+    from .surface import find_sites, unwrap_along
+    h, o = oxyanion_atoms(atoms, halide_atom_id)
+    z = unwrap_along(atoms, rec.normal_axis)
+    face = "top" if abs(z[h] - rec.faces["top"]["edge_coordinate_A"]) <= \
+        abs(z[h] - rec.faces["bottom"]["edge_coordinate_A"]) else "bottom"
+    w = water_passivator()
+    o_sites = [Site(f"{face}-oxyO{k}", "oxyanion_O", face, atoms.positions[k].tolist(), int(k)) for k in o]
+    out = [(a, sp) for a, sp in generate_poses(atoms, rec, w, o_sites, heights=hbond_heights, tilts=tilts,
+                                                n_azimuth=n_azimuth, anchors=[1], max_poses=max_poses, seed=seed,
+                                                origin_tag=origin_tag)]
+    pb_sites = [s for s in find_sites(atoms, rec, face) if s.kind == "undercoordinated_Pb"
+                and atoms.get_distance(h, s.atom_index, mic=True) <= pb_radius]
+    if pb_sites and len(out) < max_poses:
+        out += generate_poses(atoms, rec, w, pb_sites, heights=pb_heights, tilts=tilts, n_azimuth=n_azimuth,
+                              anchors=[0], max_poses=max_poses - len(out), seed=seed, origin_tag=origin_tag)
+    return out
+

@@ -309,7 +309,7 @@ def place(substrate: Atoms, rec: SurfaceRecord, pas: Passivator, site: Site, anc
 def generate_poses(substrate: Atoms, rec: SurfaceRecord, pas: Passivator, sites: list[Site],
                    heights=(2.6, 3.0), tilts=(0.0, 30.0), n_azimuth: int = 4,
                    anchors: list[int] | None = None, max_poses: int = 200, seed: int = 0,
-                   clash_scale: float = 1.0, wrap: bool = True) -> list[tuple[Atoms, PoseSpec]]:
+                   clash_scale: float = 1.0, wrap: bool = True, origin_tag: int = 1) -> list[tuple[Atoms, PoseSpec]]:
     """Enumerate rigid poses (salts stay as the declared ion pair) and keep clash-free ones.
     Sampling is systematic over sites x anchors x heights x tilts x azimuths, then
     shuffled with ``seed`` and truncated to ``max_poses`` (the pose budget is reported)."""
@@ -321,7 +321,7 @@ def generate_poses(substrate: Atoms, rec: SurfaceRecord, pas: Passivator, sites:
     rng.shuffle(combos)
     out = []
     for s, a, h, t, az in combos:
-        m = place(sub, rec, pas, s, a, h, t, float(az))
+        m = place(sub, rec, pas, s, a, h, t, float(az), origin_tag=origin_tag)
         if clash_report(sub.cell.array, sub.pbc, sub.get_chemical_symbols(), sub.positions,
                         m.get_chemical_symbols(), m.positions, clash_scale):
             continue
