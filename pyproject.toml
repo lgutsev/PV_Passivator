@@ -12,6 +12,7 @@ dependencies = ["numpy>=1.24", "ase>=3.23"]
 [project.optional-dependencies]
 dev = ["pytest>=7"]
 excel = ["openpyxl"]
+render = ["ovito>=3.10"]
 
 [project.scripts]
 pvpass = "pvpassivator.cli:main"

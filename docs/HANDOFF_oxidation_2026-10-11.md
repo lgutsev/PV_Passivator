@@ -11,7 +11,7 @@ Status: committed on `main` (local; `main` tracks an upstream that no longer exi
 | `tests/test_oxidation.py` | New: idealised bond lengths/angles for n = 1–4, iodate poses on the 5-layer `toy_slab`, composition, `atom_id`/`fragment_id`/`origin` arrays, formal charge preserved, balanced reaction, minimum Pb–O, non-halide site rejected. |
 | `README.md` | Status row for `oxidation.py`. |
 
-`pytest`: 34 passed (system Python 3.14, ase + numpy). The `hydra_stageA` conda/venv env has ase and MACE but no pytest.
+`pytest`: 34 passed (system Python 3.14, ase + numpy). The local MACE env has ase and MACE but no pytest.
 
 ## Design decisions (keep these)
 
