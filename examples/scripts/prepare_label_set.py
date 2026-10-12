@@ -176,7 +176,7 @@ def main(argv=None) -> int:
 
     slab_name = cfg.get("slab_name", "slab")
     slab = load_slab(Path(cfg["slab_dir"]), slab_name)
-    kp = kpoints_for(slab, ax)
+    kp = cfg.get("slab_kpoints") or kpoints_for(slab, ax)
     job_pair(slab, f"slab_{slab_name}", "bare_slab", ax, kp, "relax", "static")
 
     for case in cfg["cases"]:
@@ -209,6 +209,25 @@ def main(argv=None) -> int:
             "E_ads": f"E(complex_{name}/static) - E(slab_{slab_name}/static) - E(ref_{name}/static)",
             "sign": "negative = binding", "units": "eV per passivator"})
 
+    # k-point check: static-only jobs on a denser mesh from the relaxed geometries of a slab and a complex, to confirm
+    # that the k-point error cancels in E_ads (it cancels to ~4 meV between bare slabs in the PBE archive)
+    kc = cfg.get("kpoint_check")
+    if kc:
+        for name in kc["jobs"]:
+            if name not in manifest["jobs"]:
+                raise ValueError(f"kpoint_check job {name} is not in the set")
+            src = read(out / name / "relax" / "POSCAR", format="vasp")
+            r = write_job(src, out / f"kcheck_{name}", f"{fam}/static", manifest["jobs"][name]["role"],
+                          normal_axis=ax, kpoints=kc["kpoints"], overwrite=a.overwrite)
+            manifest["jobs"][f"kcheck_{name}"] = {
+                "static": f"kcheck_{name}", "static_geometry_from": f"{name}/relax/CONTCAR",
+                "role": "kpoint_check", "kpoints": kc["kpoints"], "natoms": len(src),
+                "purpose": f"compare with {name}/static: the k-shift should match between the slab and the complex"}
+            statics[f"kcheck_{name}"] = r
+        manifest["kpoint_check"] = {
+            "kpoints": kc["kpoints"], "jobs": kc["jobs"],
+            "test": "dk(X) = E(kcheck_X) - E(X/static); |dk(complex) - dk(slab)| is the k-error in E_ads; "
+                    "accept the Gamma-only set if it is below 0.02 eV"}
     problems = check_matched_settings(statics)
     if problems:
         raise SystemExit("static jobs are not comparable:\n  " + "\n  ".join(problems))
