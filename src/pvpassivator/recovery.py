@@ -19,7 +19,7 @@ from .vasp_io import parse_lite, LiteRun
 # F=7, Cl=7). Recovered from NELECT arithmetic in charged runs (e.g. 2682 -> 2681/2683);
 # confirm against the POTCARs before trusting charged-state accounting.
 ZVAL_ASSUMED = {"Pb": 14, "I": 7, "N": 5, "C": 4, "H": 1, "O": 6, "F": 7, "Cl": 7, "S": 6,
-                "Na": 7, "K": 9, "Cs": 9, "Br": 7}
+                "Na": 7, "K": 9, "Cs": 9, "Br": 7, "B": 3, "P": 5, "Si": 4}
 
 
 def ensure_extracted(zip_path: Path, cache: Path) -> Path:
