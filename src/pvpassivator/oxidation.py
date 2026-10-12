@@ -229,13 +229,14 @@ def _bridge_direction(sub: Atoms, h: int, n: np.ndarray, pbs: list[int]) -> np.n
 
 
 def oxyanion_preset_poses(substrate: Atoms, rec: SurfaceRecord, site: Site, n_oxygen: int = 3,
-                          preset: str = "O-down", psis=None, phis=(0.0, 60.0), lifts=(0.0,),
+                          preset: str = "O-down", psis=None, phis=None, lifts=(0.0,),
                           clash_scale: float = 0.85,
                           min_pb_o: float = 2.05, wrap: bool = True) -> list[tuple[Atoms, OxyanionSpec]]:
     """Named starting orientations for the two bonding limits of a surface oxyanion.
 
     ``X-down`` (Pb-X-O): the halide stays in its site with the lone pair pointing into the slab, so the
-    O atoms point to vacuum; ``phis`` rotates them about the normal. ``lifts`` (A) optionally raises the
+    O atoms point to vacuum; ``phis`` rotates them about the normal (default (90,) for IO2-, which puts the
+    O-X-O plane perpendicular to the bridge; along the bridge the O land on the Pb; (0, 60) otherwise). ``lifts`` (A) optionally raises the
     halide: on an in-plane PbI2-face site the near-sideways O of an IO3- pyramid clash with neighbouring
     halides at lift 0, so no X-down IO3- pose survives without a lift (e.g. lifts=(0.0, 0.8)).
     ``O-down`` (Pb-O-X): one O sits in the old halide site and the halide is lifted along the outward
@@ -247,6 +248,8 @@ def oxyanion_preset_poses(substrate: Atoms, rec: SurfaceRecord, site: Site, n_ox
     sub, h = _check_site(substrate, site)
     n = _outward_normal(sub, rec, site.face)
     if preset == "X-down":
+        if phis is None:
+            phis = (90.0,) if n_oxygen == 2 else (0.0, 60.0)
         out = oxyanion_poses(substrate, rec, site, n_oxygen, lone_pairs=[("X-down", -n)], phis=phis,
                              lifts=lifts, clash_scale=clash_scale, min_pb_o=min_pb_o, wrap=wrap)
         for _, spec in out:

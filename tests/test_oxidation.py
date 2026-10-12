@@ -219,5 +219,10 @@ def test_o_down_and_x_down_presets(tmp_path):
         assert np.allclose(f.positions[h], x0)
         assert np.all(f.get_distances(h, [len(f) - 3, len(f) - 2, len(f) - 1], mic=True, vector=True) @ n > 0)
         assert "/X-down/" in spec.pose_id
+    # X-down IO2- defaults to phi = 90: O-I-O plane perpendicular to the bridge, as for O-down
+    (f, spec), = oxyanion_preset_poses(atoms, rec, site, 2, "X-down")
+    assert spec.phi_deg == 90.0
+    u = f.get_distances(h, [len(f) - 2, len(f) - 1], mic=True, vector=True)
+    assert abs(np.cross(u[0], u[1]) @ bridge) / np.linalg.norm(np.cross(u[0], u[1])) > 0.999
     with pytest.raises(ValueError):
         oxyanion_preset_poses(atoms, rec, site, 3, "sideways")
