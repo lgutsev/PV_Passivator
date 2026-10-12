@@ -347,7 +347,18 @@ def generate_poses(substrate: Atoms, rec: SurfaceRecord, pas: Passivator, sites:
 def classify_final_state(initial: Atoms, final: Atoms, rec: SurfaceRecord,
                          desorb_dist: float = 4.0) -> dict:
     """Compare covalent fragments of placed components before vs after relaxation.
-    Atom correspondence uses ``atom_id`` (never position matching)."""
+    Atom correspondence uses ``atom_id`` (never position matching). A final structure without the arrays (e.g. an
+    unsorted VASP CONTCAR) is accepted when its species sequence matches the initial one; arrays are copied by index.
+    Oxyanions from ``oxidation.oxyanion_poses`` are classified by ``oxidation.oxyanion_state`` (key ``oxyanions``)."""
+    if "atom_id" not in final.arrays:
+        if final.get_chemical_symbols() != initial.get_chemical_symbols():
+            raise ValueError("final structure has no atom_id array and its species order differs from the initial "
+                             "one; carry the pose arrays through relaxation or write it unsorted")
+        final = final.copy()
+        for k in ("atom_id", "fragment_id", "origin"):
+            if k in initial.arrays:
+                final.set_array(k, initial.arrays[k])
+
     def by_id(a):
         return {int(i): k for k, i in enumerate(a.arrays["atom_id"])}
     mi, mf = by_id(initial), by_id(final)
@@ -390,6 +401,22 @@ def classify_final_state(initial: Atoms, final: Atoms, rec: SurfaceRecord,
         if d > desorb_dist and cls == "intact_adsorption":
             cls = "desorbed"
             details.append({"component": int(k), "min_distance_A": float(d)})
+    if "fragment_id" in initial.arrays:
+        isyms = np.array(initial.get_chemical_symbols())
+        frag_id = initial.arrays["fragment_id"]
+        ox_frags = set(frag_id[(isyms == "O") & (origin > 0)].tolist())
+        hal = [i for i in np.where(np.isin(isyms, ["I", "Br", "Cl"]) & (origin == 0))[0] if frag_id[i] in ox_frags]
+        if hal:
+            from .oxidation import oxyanion_state
+            fin.set_array("atom_id", initial.arrays["atom_id"])
+            states = [dict(halide_atom_id=int(initial.arrays["atom_id"][i]),
+                           **oxyanion_state(initial, fin, rec, int(initial.arrays["atom_id"][i]))) for i in hal]
+            bad = [s for s in states if not s["oxyanion_class"].startswith("intact")]
+            if bad:
+                return {"final_state_class": "oxyanion_" + bad[0]["oxyanion_class"], "details": details,
+                        "oxyanions": states, "reaction_accounting": bad[0]["reaction_accounting"]}
+            return {"final_state_class": "intact_adsorption", "details": details, "oxyanions": states,
+                    "reaction_accounting": "unchanged"}
     return {"final_state_class": cls, "details": details,
             "reaction_accounting": "unchanged" if cls in ("intact_adsorption",) else
             "must be re-declared: final state is not the declared molecular adsorption"}

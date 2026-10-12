@@ -103,3 +103,90 @@ def test_fingerprint_refuses_structures_without_pose_arrays(tmp_path):
     del bare.arrays["origin"]
     with pytest.raises(ValueError, match="origin"):
         oxyanion_fingerprint(bare, spec.halide_atom_id)
+
+
+# ----------------------------------------------------------------------------- final-state classification
+def _built(tmp_path, n=3, lp=None):
+    atoms, rec = _surface(tmp_path)
+    site = _top_inplane_iodide(atoms, rec)
+    kw = {"lone_pairs": lp} if lp else {}
+    full, spec = oxyanion_poses(atoms, rec, site, n_oxygen=n, **kw)[0]
+    return full, rec, spec
+
+
+def _normal(full, rec):
+    v = full.cell.array[rec.normal_axis]
+    return v / np.linalg.norm(v)
+
+
+def test_classify_intact_iodate_reports_orientation_and_height(tmp_path):
+    from pvpassivator.poses import classify_final_state
+    full, rec, spec = _built(tmp_path)
+    r = classify_final_state(full, full.copy(), rec)
+    assert r["final_state_class"] == "intact_adsorption"
+    (s,) = r["oxyanions"]
+    assert s["oxyanion_class"].startswith("intact") and s["n_oxygen"] == 3
+    assert all(x == pytest.approx(1.81, abs=1e-6) for x in s["x_o_A"])
+    assert s["o_orientation_deg"] is not None and 0 <= s["o_orientation_deg"] <= 180
+    assert abs(s["halide_height_A"]) < 1.0           # in-plane surface iodide
+
+
+def test_classify_orientation_follows_the_oxygen_side(tmp_path):
+    from pvpassivator.poses import classify_final_state
+    atoms, rec = _surface(tmp_path)
+    site = _top_inplane_iodide(atoms, rec)
+    n = np.zeros(3); n[rec.normal_axis] = 1.0
+    up = oxyanion_poses(atoms, rec, site, n_oxygen=1, lone_pairs=[("in", -n)], lifts=(0.0,))   # O to vacuum
+    assert up
+    s = classify_final_state(up[0][0], up[0][0].copy(), rec)["oxyanions"][0]
+    assert s["o_orientation_deg"] < 10
+
+
+def test_classify_o_transfer_cleavage_protonation_sinking_desorption(tmp_path):
+    from pvpassivator.poses import classify_final_state
+    full, rec, spec = _built(tmp_path)
+    n = _normal(full, rec)
+    h = spec.halide_index
+    o = list(range(len(full) - 3, len(full)))
+    syms = np.array(full.get_chemical_symbols())
+    pb = [i for i in np.where(syms == "Pb")[0]]
+    # O moved onto a Pb (1.9 A above it), away from the iodine
+    f = full.copy()
+    p = min(pb, key=lambda i: f.get_distance(i, o[0], mic=True))
+    f.positions[o[0]] = f.positions[p] + 2.1 * n
+    if f.get_distance(h, o[0], mic=True) <= 2.3:
+        f.positions[o[0]] += 1.0 * n
+    r = classify_final_state(full, f, rec)
+    assert r["final_state_class"] in ("oxyanion_o_transfer_to_metal", "oxyanion_x_o_cleavage")
+    assert r["oxyanions"][0]["cleaved_o"] == [0]
+    # O pulled straight away into vacuum: cleavage, not transfer
+    f = full.copy(); f.positions[o[1]] = f.positions[h] + 4.0 * n
+    assert classify_final_state(full, f, rec)["final_state_class"] == "oxyanion_x_o_cleavage"
+    # an FA hydrogen moved onto an O: protonation
+    f = full.copy()
+    hh = min(np.where(syms == "H")[0], key=lambda i: f.get_distance(i, o[2], mic=True))
+    v = f.get_distance(o[2], hh, mic=True, vector=True)
+    f.positions[hh] = f.positions[o[2]] + 0.98 * v / np.linalg.norm(v)
+    r = classify_final_state(full, f, rec)
+    assert r["final_state_class"] == "oxyanion_protonated" and r["oxyanions"][0]["protonated_o"] == [2]
+    # whole oxyanion pushed 1.5 A into the slab: still intact, flagged below the metal plane
+    f = full.copy(); f.positions[[h] + o] -= 1.5 * n
+    s = classify_final_state(full, f, rec)["oxyanions"][0]
+    assert "below_metal_plane" in s["flags"] and s["halide_height_A"] < 0
+    # oxyanion lifted 8 A: desorbed
+    f = full.copy(); f.positions[[h] + o] += 8.0 * n
+    assert classify_final_state(full, f, rec)["final_state_class"] == "oxyanion_desorbed"
+
+
+def test_classify_accepts_unsorted_vasp_readback(tmp_path):
+    from ase.io import read, write
+    from pvpassivator.poses import classify_final_state
+    full, rec, spec = _built(tmp_path)
+    write(tmp_path / "CONTCAR", full, format="vasp", direct=True, sort=False)
+    back = read(tmp_path / "CONTCAR")
+    assert "atom_id" not in back.arrays
+    r = classify_final_state(full, back, rec)
+    assert r["oxyanions"][0]["oxyanion_class"].startswith("intact")
+    write(tmp_path / "CONTCAR_sorted", full, format="vasp", direct=True, sort=True)
+    with pytest.raises(ValueError, match="species order"):
+        classify_final_state(full, read(tmp_path / "CONTCAR_sorted"), rec)

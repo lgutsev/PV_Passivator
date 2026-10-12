@@ -338,3 +338,89 @@ def group_relaxed_poses(structures: list[Atoms], halide_atom_id: int, energies: 
             rec["energy_spread"] = float(max(es) - min(es))
         out.append(rec)
     return out
+
+
+# ----------------------------------------------------------------------------- final-state classification
+IO_BOND = 2.3          # A, halide-O distance still counted as an oxyanion bond (IO3- ~1.8, IO- ~2.0)
+OH_BOND = 1.15         # A, O-H distance counted as a covalent bond (proton on an oxyanion O)
+O_TRANSFER_PB = 2.4    # A, a cleaved O this close to a Pb is counted as transferred to the metal
+DESORB_DIST = 4.0      # A, oxyanion-to-substrate distance beyond which it is desorbed
+
+
+def _outward_height(atoms: Atoms, rec: SurfaceRecord, h: int) -> tuple[float, int]:
+    """Height (A) of atom ``h`` above the outermost metal layer of its own face, and the face sign (+1 top)."""
+    from .surface import unwrap_along, LAYER_TOL
+    z = unwrap_along(atoms, rec.normal_axis)
+    syms = np.array(atoms.get_chemical_symbols())
+    metal = np.where(np.isin(syms, ["Pb", "Sn"]))[0]
+    mid = 0.5 * (z[metal].max() + z[metal].min())
+    sign = 1 if z[h] >= mid else -1
+    edge = z[metal].max() if sign > 0 else z[metal].min()
+    outer = metal[np.abs(z[metal] - edge) < LAYER_TOL]
+    return float(sign * (z[h] - z[outer].mean())), sign
+
+
+def oxyanion_state(initial: Atoms, final: Atoms, rec: SurfaceRecord, halide_atom_id: int) -> dict:
+    """What happened to a placed oxyanion during relaxation. Atom correspondence by ``atom_id``.
+
+    Class (first that applies): ``desorbed`` > ``o_transfer_to_metal`` (an O left the halide and sits on a Pb)
+    > ``x_o_cleavage`` (an O left the halide otherwise) > ``protonated`` (an oxyanion O gained a covalent H)
+    > ``intact_bound`` (all X-O bonds kept, at least one O on Pb) > ``intact_unbound``.
+    Flags: ``below_metal_plane`` (halide below the outer Pb plane of its face), ``lifted_out`` (halide more than
+    2 A above that plane with no halide-Pb contact). Also reported: O-Pb bond count per O, the angle of the mean
+    X->O direction to the outward normal (0 deg = O point to vacuum, 180 = into the slab), halide height."""
+    h0, o0 = oxyanion_atoms(initial, halide_atom_id)
+    ids = final.arrays["atom_id"]
+    pos_of = {int(i): k for k, i in enumerate(ids)}
+    h = pos_of[int(initial.arrays["atom_id"][h0])]
+    o = [pos_of[int(initial.arrays["atom_id"][j])] for j in o0]
+    syms = np.array(final.get_chemical_symbols())
+    cell, pbc, P = final.cell.array, final.pbc, final.positions
+    d_xo = min_image_distances(cell, pbc, P[[h]], P[o])[0]
+    pb = np.where(syms == "Pb")[0]
+    d_opb = min_image_distances(cell, pbc, P[o], P[pb]) if len(pb) else np.full((len(o), 1), np.inf)
+    hyd = np.where(syms == "H")[0]
+    d_oh = min_image_distances(cell, pbc, P[o], P[hyd]) if len(hyd) else np.full((len(o), 1), np.inf)
+    d_oh0 = min_image_distances(initial.cell.array, initial.pbc, initial.positions[o0],
+                                initial.positions[np.where(np.array(initial.get_chemical_symbols()) == "H")[0]]) \
+        if len(hyd) else d_oh
+    cleaved = [k for k in range(len(o)) if d_xo[k] > IO_BOND]
+    to_metal = [k for k in cleaved if d_opb[k].min() < O_TRANSFER_PB]
+    protonated = [k for k in range(len(o)) if d_oh[k].min() < OH_BOND and d_oh0[k].min() >= OH_BOND]
+    sub = np.where(final.arrays["origin"] == 0)[0]
+    sub = sub[sub != h]
+    d_sub = min_image_distances(cell, pbc, P[[h] + o], P[sub]).min()
+    height, sign = _outward_height(final, rec, h)
+    normal = cell[rec.normal_axis] / np.linalg.norm(cell[rec.normal_axis]) * sign
+    vecs = []
+    for k, j in enumerate(o):
+        v = P[j] - P[h]
+        f = v @ np.linalg.inv(cell)
+        f -= np.round(f) * pbc
+        vecs.append(f @ cell)
+    m = np.sum([v / np.linalg.norm(v) for v in vecs], axis=0)
+    angle = float(np.degrees(np.arccos(np.clip(m @ normal / np.linalg.norm(m), -1, 1)))) if np.linalg.norm(m) > 1e-6 else None
+    d_xpb = min_image_distances(cell, pbc, P[[h]], P[pb]).min() if len(pb) else np.inf
+    n_bound = int(sum(d_opb[k].min() < PB_O_BOND for k in range(len(o)) if k not in cleaved))
+    if d_sub > DESORB_DIST:
+        cls = "desorbed"
+    elif to_metal:
+        cls = "o_transfer_to_metal"
+    elif cleaved:
+        cls = "x_o_cleavage"
+    elif protonated:
+        cls = "protonated"
+    else:
+        cls = "intact_bound" if n_bound else "intact_unbound"
+    flags = []
+    if height < 0:
+        flags.append("below_metal_plane")
+    if height > 2.0 and d_xpb > 3.6:
+        flags.append("lifted_out")
+    return {"oxyanion_class": cls, "flags": flags, "n_oxygen": len(o),
+            "x_o_A": [float(x) for x in d_xo], "o_pb_bonds": [int((d_opb[k] < PB_O_BOND).sum()) for k in range(len(o))],
+            "o_bound_to_metal": n_bound, "min_o_pb_A": [float(d_opb[k].min()) for k in range(len(o))],
+            "cleaved_o": cleaved, "o_on_metal_after_cleavage": to_metal, "protonated_o": protonated,
+            "o_orientation_deg": angle, "halide_height_A": height, "min_x_pb_A": float(d_xpb),
+            "reaction_accounting": "unchanged" if cls.startswith("intact") else
+            "must be re-declared: the oxyanion is not the declared end state"}
