@@ -179,3 +179,24 @@ def test_fill_schottky_puts_halide_in_iodide_vacancy(tmp_path):
     hal = [k for k, o in enumerate(full.arrays["origin"]) if o == 2][0]
     assert np.allclose(full.positions[hal], i_pos) and info["halide"] == "I"
     assert len(full) == len(vac) + len(m.atoms)
+
+
+def test_classify_halides_on_toy_slab(tmp_path):
+    from pvpassivator.surface import classify_halides
+    at = toy_slab(nlayers=5)
+    at.write(tmp_path / "POSCAR", format="vasp")
+    a, rec = load_surface(tmp_path / "POSCAR")
+    for face in ("top", "bottom"):
+        cls = classify_halides(a, rec, face)
+        inplane = [c for c in cls if c["class"] == "in_plane"]
+        assert len(inplane) == 2 and all(c["n_pb"] == 2 and abs(c["depth_A"]) < 1e-6 for c in inplane)
+        axial = [c for c in cls if c["class"] == "subsurface"]
+        assert axial and all(c["geometry"] == "axial" for c in axial)
+    # an iodide placed directly above an outer Pb is apical; one far above is an adatom
+    from ase import Atoms
+    top_pb = max((i for i, s in enumerate(a.get_chemical_symbols()) if s == "Pb"), key=lambda i: a.positions[i, 0])
+    b = a + Atoms("I2", positions=[a.positions[top_pb] + [3.1, 0, 0], a.positions[top_pb] + [8.0, 0, 0]], cell=a.cell)
+    cls = {c["index"]: c for c in classify_halides(b, rec, "top")}
+    assert cls[len(a)]["class"] == "apical" and cls[len(a) + 1]["class"] == "adatom"
+    sites = {s.atom_index: s for s in find_sites(a, rec, "top") if s.kind == "exposed_I"}
+    assert {s.halide_class for s in sites.values()} >= {"in_plane"}

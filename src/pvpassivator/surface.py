@@ -29,6 +29,7 @@ class Site:
     atom_index: int | None
     coordination: int | None = None
     notes: str = ""
+    halide_class: str | None = None   # in_plane | apical | subsurface | adatom (halide sites only)
 
 
 @dataclass
@@ -177,9 +178,64 @@ def find_sites(atoms: Atoms, rec: SurfaceRecord, face: str = "top",
         if coord[int(i)] < 6:
             sites.append(Site(f"{face}-Pb{i}", "undercoordinated_Pb", face,
                               atoms.positions[i].tolist(), int(i), coord[int(i)]))
+    cls = {c["index"]: c for c in classify_halides(atoms, rec, face, depth=depth)}
     for i in np.where(near & np.isin(syms, ["I", "Br", "Cl"]))[0]:
-        sites.append(Site(f"{face}-X{i}", "exposed_I", face, atoms.positions[i].tolist(), int(i)))
+        c = cls.get(int(i), {})
+        sites.append(Site(f"{face}-X{i}", "exposed_I", face, atoms.positions[i].tolist(), int(i),
+                          c.get("n_pb"), c.get("geometry", ""), c.get("class")))
     # FA cations: carbon atoms of CH5N2 units near the face
     for i in np.where(((edge - h) * sign < depth + 1.5) & (syms == "C"))[0]:
         sites.append(Site(f"{face}-FA{i}", "FA", face, atoms.positions[i].tolist(), int(i)))
     return sites
+
+
+def _outward(rec: SurfaceRecord, atoms: Atoms, face: str) -> np.ndarray:
+    n = atoms.cell.array[rec.normal_axis]
+    n = n / np.linalg.norm(n)
+    return n if face == "top" else -n
+
+
+def classify_halides(atoms: Atoms, rec: SurfaceRecord, face: str = "top", depth: float = 6.0,
+                     cutoff: float = PB_I_BOND, axial_cos: float = 0.7, plane_cos: float = 0.5) -> list[dict]:
+    """Classify every halide within ``depth`` (A) of the outermost inorganic layer of ``face``.
+
+    Uses the Pb neighbours within ``cutoff`` and the angle of each Pb->X bond to the outward normal (cos > ``axial_cos``: X points out of its Pb; |cos| < ``plane_cos``: bond in the plane).
+      in_plane   - in the outer layer, bridging >= 2 Pb with in-plane bonds (the PbI2-face bridge)
+      apical     - one Pb neighbour, bond pointing outward (FAI-face iodide, or a terminal X on a PbI2 face)
+      subsurface - below the outer layer; ``geometry`` says bridging_in_plane / axial / other
+      adatom     - no Pb neighbour
+    Returns dicts with index, class, geometry, n_pb, pb (indices), depth_A (below the outer layer edge),
+    bond_cos (Pb->X . n_out per Pb)."""
+    from ase.neighborlist import neighbor_list
+    syms = np.array(atoms.get_chemical_symbols())
+    h = unwrap_along(atoms, rec.normal_axis)
+    sign = 1 if face == "top" else -1
+    edge = rec.faces[face]["edge_coordinate_A"]
+    n_out = _outward(rec, atoms, face)
+    i_, j_, D = neighbor_list("ijD", atoms, cutoff)
+    out = []
+    for x in np.where(np.isin(syms, ["I", "Br", "Cl"]))[0]:
+        dep = float((edge - h[x]) * sign)
+        if dep > depth:
+            continue
+        m = (i_ == x) & (syms[j_] == "Pb")
+        pb = [int(k) for k in j_[m]]
+        cos = [float(-d @ n_out / np.linalg.norm(d)) for d in D[m]]     # Pb->X direction = -(X->Pb)
+        n = len(pb)
+        inplane = n >= 2 and all(abs(c) < plane_cos for c in cos)
+        if n == 0:
+            cls, geo = "adatom", "no Pb within cutoff"
+        elif dep > LAYER_TOL:
+            cls = "subsurface"
+            geo = "bridging_in_plane" if inplane else ("axial" if any(abs(c) > axial_cos for c in cos) else "other")
+        elif n == 1 and cos[0] > axial_cos:
+            cls, geo = "apical", "terminal, pointing out"
+        elif inplane:
+            cls, geo = "in_plane", f"bridging {n} Pb"
+        elif n >= 2 and max(cos) > axial_cos:
+            cls, geo = "apical", f"axial over {n} Pb"
+        else:
+            cls, geo = "subsurface" if dep > LAYER_TOL / 2 else "in_plane", "irregular"
+        out.append({"index": int(x), "class": cls, "geometry": geo, "n_pb": n, "pb": pb,
+                    "depth_A": dep, "bond_cos": cos})
+    return out
