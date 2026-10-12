@@ -99,7 +99,10 @@ def main(argv=None) -> int:
         at, span, vac = recentred(slab, ax, L)
         tags = truncation_tags(ax) if method in ("trunc", "tdip") else {}
         d = out / "inputs" / name / "static"
-        spec = write_job(at, d, PROFILE, "bare_slab", cell_charge=q, kpoints=[1, 1, 1], job_id=name,
+        # an odd charge leaves one unpaired electron spread over the slab: pin the doublet (NUPDOWN = 1) rather than
+        # start ISPIN = 2 from VASP's default 1 muB on every atom
+        spec = write_job(at, d, PROFILE, "bare_slab", cell_charge=q, multiplicity=2 if q % 2 else None,
+                         kpoints=[1, 1, 1], job_id=name,
                          normal_axis=ax if method in ("dip", "tdip") else None, overrides={"NCORE": 16, "KPAR": 1, **tags})
         (d / "POTCAR.spec").rename(d / "POTCAR.names")
         lf(d / "EXE", "vasp_gam\n")
@@ -124,9 +127,18 @@ def main(argv=None) -> int:
     lf(out / "lists" / "static.txt", "".join(f"{n} \n" for n in names))
     pkg = out.name
     row = 'read -r job geo < <(sed -n "$((SLURM_ARRAY_TASK_ID + 1))p" lists/static.txt)\n'
-    smoke_body = ("run_step smoke static smoke\n"
-                  "grep -i -m 20 'trunc' runs/smoke/static/OUTCAR > outputs/smoke/static/truncation_echo.txt || true\n"
-                  "[ -s outputs/smoke/static/truncation_echo.txt ] || echo 'OUTCAR does not mention truncation' >&2")
+    smoke_body = (
+        "run_step smoke static smoke\n"
+        "# desk 2026-10-12: DONE stands only if OUTCAR mentions the truncation; unknown/ignored-tag messages are kept\n"
+        "# for the desk, which reads both files before run_trunc_static.slurm is submitted\n"
+        "o=outputs/smoke/static\n"
+        "grep -i -m 20 'trunc' runs/smoke/static/OUTCAR > \"$o/truncation_echo.txt\" || true\n"
+        "grep -i -E 'unknown|not recogni|ignor|kernel_trunc' runs/smoke/static/vasp.out runs/smoke/static/OUTCAR "
+        "> \"$o/tag_messages.txt\" || true\n"
+        "if [ ! -s \"$o/truncation_echo.txt\" ]; then\n"
+        "  rm -f \"$o/DONE\"; echo 'OUTCAR does not mention truncation: 6.6.1 did not take the KERNEL_TRUNCATION tags; "
+        "report to the owner' >&2; exit 1\n"
+        "fi")
     for fname, key, purpose, body, n in (
             ("run_trunc_smoke.slurm", "smoke", f"{smoke_src} with NELM=4: tags accepted, SCF timed", smoke_body, 0),
             ("run_trunc_static.slurm", "static", "all static jobs (fixed geometry)",
@@ -154,11 +166,11 @@ def main(argv=None) -> int:
               "the dipole correction for a charged perovskite slab. Fixed geometry, static only; nothing was "
               "submitted.", "", f"Slab: `{a.slab}` ({len(slab)} atoms), re-centred in cells of "
               f"{', '.join(f'{L:g}' for L in lengths)} Ã… along axis {ax}. Charges {a.charges}. "
-              f"{len(jobs)} statics, Î“-only `vasp_gam`, {n_spin} spin-polarised (odd electron count).", "",
+              f"{len(jobs)} statics, Î“-only `vasp_gam`, {n_spin} spin-polarised doublets (odd electron count, NUPDOWN = 1).", "",
               "## Commands, in order (from this directory)", "",
               f"1. `sbatch run_trunc_smoke.slurm` (1 job, 2 nodes, â‰¤ 1 h; est. 1â€“2 node-h). `{smoke_src}` with NELM=4. "
-              "Check that `outputs/smoke/static/DONE` exists (VASP accepted the KERNEL_TRUNCATION tags) and read "
-              "`timing.txt` / `truncation_echo.txt`.",
+              "DONE only if two SCF steps ran and OUTCAR mentions the truncation (otherwise exit 1). Read `timing.txt`, "
+              "`truncation_echo.txt` and `tag_messages.txt` before the array.",
               f"2. `sbatch run_trunc_static.slurm` ({len(jobs)} jobs, 2 nodes each, â‰¤ 8 h, at most 6 at once; "
               "est. 40â€“100 node-h). Resubmitting skips finished jobs.", "",
               "Outputs per job: OUTCAR, OSZICAR, vasprun.xml.gz, LOCPOT.gz (Hartree + ionic, LVHAR). "
