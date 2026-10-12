@@ -150,7 +150,8 @@ def main(argv=None) -> int:
         r = write_job(atoms, out / name / "relax", f"{fam}/{prof_relax}", role, normal_axis=normal_axis,
                       kpoints=kpoints, overwrite=a.overwrite, overrides=ov)
         s = write_job(atoms, out / name / "static", f"{fam}/{prof_static}", role, normal_axis=normal_axis,
-                      kpoints=kpoints, parents=[r.job_id], overwrite=a.overwrite, overrides=ov)
+                      kpoints=kpoints, parents=[r.job_id], overwrite=a.overwrite,
+                      overrides={**ov, **cfg.get("static_overrides", {})})
         manifest["jobs"][name] = {"relax": f"{name}/relax", "static": f"{name}/static",
                                   "static_geometry_from": f"{name}/relax/CONTCAR", "role": role,
                                   "kpoints": kpoints, "natoms": len(atoms)}
@@ -159,9 +160,13 @@ def main(argv=None) -> int:
 
     # bulk: confirm the lattice that defines the common cell
     kb = kpoints_for(bulk, None)
+    # a cell relaxation at the slab cutoff carries Pulay stress; ``bulk_encut_factor`` raises ENCUT for this job only
+    from pvpassivator.vaspprep import PROFILES
+    enc = round(float(PROFILES[f"{fam}/relax"]["ENCUT"]) * cfg.get("bulk_encut_factor", 1.0))
     rb = write_job(bulk, out / "bulk" / "relax", f"{fam}/relax", "bulk", kpoints=kb, overwrite=a.overwrite,
-                   overrides={"ISIF": 3})
+                   overrides={"ISIF": 3, "ENCUT": enc})
     manifest["jobs"]["bulk"] = {"relax": "bulk/relax", "role": "bulk", "kpoints": kb, "natoms": len(bulk),
+                                "ENCUT": enc,
                                 "purpose": "confirm the lattice; if it moves by > 0.5 %, regenerate the set"}
 
     def load_slab(d: Path, label: str) -> Atoms:
@@ -227,7 +232,8 @@ def main(argv=None) -> int:
             src = read(out / name / "relax" / "POSCAR", format="vasp")
             r = write_job(src, out / f"kcheck_{name}", f"{fam}/static", manifest["jobs"][name]["role"],
                           normal_axis=ax, kpoints=kc["kpoints"], overwrite=a.overwrite,
-                          overrides={**par.get("kcheck", par.get("slab", {})), **common})
+                          overrides={**par.get("kcheck", par.get("slab", {})), **common,
+                                     **cfg.get("static_overrides", {})})
             manifest["jobs"][f"kcheck_{name}"] = {
                 "static": f"kcheck_{name}", "static_geometry_from": f"{name}/relax/CONTCAR",
                 "role": "kpoint_check", "kpoints": kc["kpoints"], "natoms": len(src),
