@@ -141,11 +141,16 @@ def main(argv=None) -> int:
                 "structures": {}, "jobs": {}, "reactions": [], "notes": []}
     statics: dict[str, JobSpec] = {}
 
+    par = cfg.get("parallel", {})          # NCORE/KPAR per role; performance only, not part of the Hamiltonian
+    common = {}                            # settings shared by every slab-type job (filled from the bare slab)
+
     def job_pair(atoms, name, role, normal_axis, kpoints, prof_relax, prof_static, extra=None):
+        ov = {**par.get("ref" if role == "reference" else "slab", {}), **(common if normal_axis is not None else {}),
+              **(extra or {})}
         r = write_job(atoms, out / name / "relax", f"{fam}/{prof_relax}", role, normal_axis=normal_axis,
-                      kpoints=kpoints, overwrite=a.overwrite, overrides=extra)
+                      kpoints=kpoints, overwrite=a.overwrite, overrides=ov)
         s = write_job(atoms, out / name / "static", f"{fam}/{prof_static}", role, normal_axis=normal_axis,
-                      kpoints=kpoints, parents=[r.job_id], overwrite=a.overwrite)
+                      kpoints=kpoints, parents=[r.job_id], overwrite=a.overwrite, overrides=ov)
         manifest["jobs"][name] = {"relax": f"{name}/relax", "static": f"{name}/static",
                                   "static_geometry_from": f"{name}/relax/CONTCAR", "role": role,
                                   "kpoints": kpoints, "natoms": len(atoms)}
@@ -177,7 +182,10 @@ def main(argv=None) -> int:
     slab_name = cfg.get("slab_name", "slab")
     slab = load_slab(Path(cfg["slab_dir"]), slab_name)
     kp = cfg.get("slab_kpoints") or kpoints_for(slab, ax)
-    job_pair(slab, f"slab_{slab_name}", "bare_slab", ax, kp, "relax", "static")
+    s0 = job_pair(slab, f"slab_{slab_name}", "bare_slab", ax, kp, "relax", "static")
+    # one dipole-correction centre for slab, complexes and k-point checks (all share the cell), taken from the slab
+    if "DIPOL" in s0.incar:
+        common["DIPOL"] = s0.incar["DIPOL"]
 
     for case in cfg["cases"]:
         name = case["name"]
@@ -218,7 +226,8 @@ def main(argv=None) -> int:
                 raise ValueError(f"kpoint_check job {name} is not in the set")
             src = read(out / name / "relax" / "POSCAR", format="vasp")
             r = write_job(src, out / f"kcheck_{name}", f"{fam}/static", manifest["jobs"][name]["role"],
-                          normal_axis=ax, kpoints=kc["kpoints"], overwrite=a.overwrite)
+                          normal_axis=ax, kpoints=kc["kpoints"], overwrite=a.overwrite,
+                          overrides={**par.get("kcheck", par.get("slab", {})), **common})
             manifest["jobs"][f"kcheck_{name}"] = {
                 "static": f"kcheck_{name}", "static_geometry_from": f"{name}/relax/CONTCAR",
                 "role": "kpoint_check", "kpoints": kc["kpoints"], "natoms": len(src),
