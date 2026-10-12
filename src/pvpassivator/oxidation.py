@@ -222,3 +222,119 @@ def oxidation_reaction(slab: Species, product: Species, n_oxygen: int) -> Reacti
                   label=f"surface iodide -> {IODINE_OXYANIONS[n_oxygen][2]}", energy_kind="reaction")
     rx.assert_balanced()
     return rx
+
+
+# ----------------------------------------------------------------------------- after relaxation
+# Fingerprint channels: (centre, neighbour element, number of nearest distances kept). O distances are
+# pooled over all O atoms, so the fingerprint does not depend on O numbering. Only the first shell is
+# used: outer Pb and the cation H-bond network vary between relaxations of the same motif.
+HEAVY_CHANNELS = (("I", "O", 4), ("O", "Pb", 3), ("I", "Pb", 2))
+H_CHANNELS = (("O", "H", 3),)
+PB_O_BOND = 2.8     # A, O-Pb contact counted as a bond in the motif key
+
+
+def oxyanion_atoms(atoms: Atoms, halide_atom_id: int) -> tuple[int, list[int]]:
+    """Index of the oxidised halide and of the O atoms placed with it (same ``fragment_id``, ``origin`` > 0).
+    Uses the arrays written by ``oxyanion_poses``; a structure read back without them is refused."""
+    for k in ("atom_id", "fragment_id", "origin"):
+        if k not in atoms.arrays:
+            raise ValueError(f"structure has no '{k}' array; carry the pose arrays through relaxation")
+    hits = np.where(atoms.arrays["atom_id"] == halide_atom_id)[0]
+    if len(hits) != 1:
+        raise ValueError(f"atom_id {halide_atom_id} found {len(hits)} times")
+    h = int(hits[0])
+    syms = np.array(atoms.get_chemical_symbols())
+    o = np.where((syms == "O") & (atoms.arrays["origin"] > 0)
+                 & (atoms.arrays["fragment_id"] == atoms.arrays["fragment_id"][h]))[0]
+    if len(o) == 0:
+        raise ValueError(f"no oxyanion O atoms attached to halide atom_id {halide_atom_id}")
+    return h, [int(i) for i in o]
+
+
+def oxyanion_fingerprint(atoms: Atoms, halide_atom_id: int,
+                         channels=HEAVY_CHANNELS + H_CHANNELS) -> dict[str, np.ndarray]:
+    """Sorted nearest-neighbour distances around the oxyanion per channel (missing neighbours pad with
+    inf), plus ``o_pb_bonds``: per-O count of Pb within ``PB_O_BOND``, sorted."""
+    h, o = oxyanion_atoms(atoms, halide_atom_id)
+    syms = np.array(atoms.get_chemical_symbols())
+    cell, pbc, pos = atoms.cell.array, atoms.pbc, atoms.positions
+    out = {}
+    for centre, elem, k in channels:
+        cidx = [h] if centre == "I" else o
+        nidx = np.array(o) if (centre, elem) == ("I", "O") else np.where(syms == elem)[0]
+        nidx = nidx[~np.isin(nidx, cidx)]
+        d = np.sort(min_image_distances(cell, pbc, pos[cidx], pos[nidx]).ravel()) if len(nidx) else np.array([])
+        v = np.full(k, np.inf)
+        v[:min(k, len(d))] = d[:k]
+        out[f"{centre}-{elem}"] = v
+    pb = np.where(syms == "Pb")[0]
+    nb = (min_image_distances(cell, pbc, pos[o], pos[pb]) < PB_O_BOND).sum(1) if len(pb) else np.zeros(len(o))
+    out["o_pb_bonds"] = np.sort(nb).astype(float)
+    return out
+
+
+def _max_dev(a: dict, b: dict, keys) -> float:
+    worst = 0.0
+    for key in keys:
+        x, y = a[key], b[key]
+        if np.any(np.isfinite(x) != np.isfinite(y)):
+            return np.inf
+        fin = np.isfinite(x)
+        if fin.any():
+            worst = max(worst, float(np.abs(x[fin] - y[fin]).max()))
+    return worst
+
+
+def group_relaxed_poses(structures: list[Atoms], halide_atom_id: int, energies: list[float] | None = None,
+                        tol: float = 0.10, h_tol: float | None = None, energy_tol: float | None = None,
+                        labels: list[str] | None = None) -> list[dict]:
+    """Group relaxed oxyanion structures that reached the same local minimum.
+
+    Same group = identical O-Pb bond counts and every heavy-atom first-shell distance (I-O, O-Pb, I-Pb)
+    within ``tol`` (A) of the group's representative. O-H distances and energies are reported; they
+    split groups only when ``h_tol`` / ``energy_tol`` are given (useful once relaxations are converged).
+    Structures are visited in energy order (input order without energies) and join the closest
+    matching representative, so each representative is its group's lowest-energy member."""
+    n = len(structures)
+    labels = labels or [str(i) for i in range(n)]
+    if (energies is not None and len(energies) != n) or len(labels) != n:
+        raise ValueError("energies/labels must match structures")
+    fps = [oxyanion_fingerprint(a, halide_atom_id) for a in structures]
+    heavy = [f"{c}-{e}" for c, e, _ in HEAVY_CHANNELS]
+    hkeys = [f"{c}-{e}" for c, e, _ in H_CHANNELS]
+    order = list(np.argsort(energies, kind="stable")) if energies is not None else list(range(n))
+    groups: list[dict] = []
+    for i in order:
+        best, best_d = None, np.inf
+        for g in groups:
+            r = g["rep"]
+            if not np.array_equal(fps[r]["o_pb_bonds"], fps[i]["o_pb_bonds"]):
+                continue
+            d = _max_dev(fps[r], fps[i], heavy)
+            if d > tol or (h_tol is not None and _max_dev(fps[r], fps[i], hkeys) > h_tol):
+                continue
+            if energy_tol is not None and energies is not None and abs(energies[i] - energies[r]) > energy_tol:
+                continue
+            if d < best_d:
+                best, best_d = g, d
+        if best is None:
+            groups.append({"rep": int(i), "members": [int(i)], "dev": 0.0})
+        else:
+            best["members"].append(int(i))
+            best["dev"] = max(best["dev"], best_d)
+
+    def clean(v):
+        return [float(x) if np.isfinite(x) else None for x in v]
+    out = []
+    for g in groups:
+        m, r = g["members"], g["rep"]
+        rec = {"representative": labels[r], "members": [labels[i] for i in m], "multiplicity": len(m),
+               "o_pb_bonds": [int(x) for x in fps[r]["o_pb_bonds"]], "max_heavy_dev_A": g["dev"],
+               "max_h_dev_A": max(_max_dev(fps[r], fps[i], hkeys) for i in m),
+               "fingerprint": {k: clean(v) for k, v in fps[r].items() if k != "o_pb_bonds"}}
+        if energies is not None:
+            es = [energies[i] for i in m]
+            rec["energy"] = float(energies[r])
+            rec["energy_spread"] = float(max(es) - min(es))
+        out.append(rec)
+    return out

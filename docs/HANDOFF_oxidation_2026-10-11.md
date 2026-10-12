@@ -1,7 +1,6 @@
 # Handoff: surface iodide oxyanions (`oxidation.py`), 2026-10-11
 
-Status: **uncommitted** working-tree changes. Do not commit or push without the owner's OK. Note that
-`main` tracks an upstream that no longer exists (`git status` says "upstream is gone").
+Status: committed on `main` (local; `main` tracks an upstream that no longer exists, so nothing is pushed).
 
 ## What was added
 
@@ -40,8 +39,13 @@ motivates the dedup item below.
 
 ## Next tasks, in priority order
 
-1. **Deduplicate relaxed poses.** Fingerprint by sorted O–Pb / I–Pb / O–H(N) distances around the oxyanion (or a
-   SOAP/RMSD after `atom_id` alignment) and group within a tolerance; report a representative and the multiplicity.
+1. ~~**Deduplicate relaxed poses.**~~ Done: `oxyanion_fingerprint` / `group_relaxed_poses`. Hard key = per-O count
+   of Pb within 2.8 Å; then heavy-atom first shell (I–O, 3 nearest O–Pb, 2 nearest I–Pb) within `tol` = 0.10 Å of the
+   group's lowest-energy representative. O–H distances and energies are reported and split groups only via `h_tol` /
+   `energy_tol`. On the 11 MACE pre-relaxed IO₃⁻ poses: 4 groups (6 + 2 + 2 + 1, the singleton being the only pose
+   with an O not bonded to Pb). Outer-shell Pb and FA H-bond distances were tried and rejected: they differ by
+   0.5–1.7 Å between relaxations of the same motif. 0.15 Å already merges groups 0.23 eV apart. Needs the pose arrays
+   (`atom_id`, `fragment_id`, `origin`); VASP files lose them, so re-attach by atom order before grouping.
 2. **`classify_final_state` support for oxyanions**: intact IOₙ, I–O cleavage, O transferred to Pb (Pb–O < 2.4 Å with
    I–O > 2.3 Å), oxyanion lifted out of the layer (halide height above the outer Pb plane), proton transfer to an oxyanion O.
 3. **Pb(IO₃)₂ unit builder**: two in-plane iodides that share one surface Pb → both oxidised; a record that declares the
