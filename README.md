@@ -12,7 +12,8 @@ Charge-balanced preparation and DFT-backed analysis for passivated FAPbI3 surfac
 | Charge displacement Δn / λ(z) / CD(z) (`density.py`) | implemented, synthetic fixture only; no archived CHGCARs |
 | NAMD frame export (`namd_adapter.py`, `pvpass namd-export`) | implemented and tested on synthetic trajectories |
 | Surface iodide oxyanions IO⁻…IO₄⁻ (`oxidation.py`) | implemented and unit-tested: idealised end states in scanned orientations, balanced `slab + n/2 O2 -> slab(IO_n-)` ledger entry; O2 is a reservoir only, no O2–surface paths; relaxed poses grouped by O–Pb bonding + first-shell fingerprint (`group_relaxed_poses`) |
-| Pose generation, VASP job prep, MLIP benchmark, UI | not started |
+| Structure renders in the house style (`render.py`, `docs/FIGURE_STYLE.md`) | implemented; cutout geometry unit-tested, OVITO render smoke-tested (optional extra `[render]`) |
+| MLIP benchmark, UI | not started (pose generation is in `poses.py`, r2SCAN job prep in `vaspprep.py`) |
 
 ## Usage
 
