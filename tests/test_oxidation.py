@@ -190,3 +190,34 @@ def test_classify_accepts_unsorted_vasp_readback(tmp_path):
     write(tmp_path / "CONTCAR_sorted", full, format="vasp", direct=True, sort=True)
     with pytest.raises(ValueError, match="species order"):
         classify_final_state(full, read(tmp_path / "CONTCAR_sorted"), rec)
+
+
+def test_o_down_and_x_down_presets(tmp_path):
+    from pvpassivator.oxidation import oxyanion_preset_poses, _bridge_direction, _nearest_pb
+    atoms, rec = _surface(tmp_path)
+    site = _top_inplane_iodide(atoms, rec)
+    h = site.atom_index
+    n = np.eye(3)[rec.normal_axis]
+    x0 = atoms.positions[h].copy()
+    # O-down IO3-: halide lifted by the I-O length, one O in the old halide site, that bond straight down
+    poses = oxyanion_preset_poses(atoms, rec, site, 3, "O-down")
+    assert [s.phi_deg for _, s in poses] == [0.0, 90.0]
+    for f, spec in poses:
+        d, _, _, _ = IODINE_OXYANIONS[3]
+        assert np.allclose(f.positions[h], x0 + d * n)
+        assert np.allclose(f.get_distances(h, [len(f) - 3, len(f) - 2, len(f) - 1], mic=True), d)
+        assert min(np.linalg.norm(f.positions[-3:] - x0, axis=1)) < 1e-6
+        assert spec.lone_pair == "O-down" and "/O-down/" in spec.pose_id
+    # O-down IO2-, psi = 0: the O-I-O plane is perpendicular to the Pb-I-Pb bridge
+    (f, spec), *_ = oxyanion_preset_poses(atoms, rec, site, 2, "O-down")
+    u = f.get_distances(h, [len(f) - 2, len(f) - 1], mic=True, vector=True)
+    plane_n = np.cross(u[0], u[1]) / np.linalg.norm(np.cross(u[0], u[1]))
+    bridge = _bridge_direction(atoms, h, n, _nearest_pb(atoms, h))
+    assert abs(plane_n @ bridge) > 0.999
+    # X-down: halide stays, every O points to vacuum
+    for f, spec in oxyanion_preset_poses(atoms, rec, site, 3, "X-down"):
+        assert np.allclose(f.positions[h], x0)
+        assert np.all(f.get_distances(h, [len(f) - 3, len(f) - 2, len(f) - 1], mic=True, vector=True) @ n > 0)
+        assert "/X-down/" in spec.pose_id
+    with pytest.raises(ValueError):
+        oxyanion_preset_poses(atoms, rec, site, 3, "sideways")
