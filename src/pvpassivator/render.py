@@ -31,6 +31,7 @@ RADII = {"Pb": 0.62, "Sn": 0.62, "I": 0.80, "Br": 0.72, "Cl": 0.66, "C": 0.40, "
          "S": 0.58, "F": 0.40, "P": 0.55, "Cs": 0.95, "K": 0.85, "Na": 0.75, "Rb": 0.90}
 FOCUS_COLOR, FOCUS_SCALE = (0.86, 0.12, 0.47), 1.2
 HALO_COLOR, HALO_RADIUS, HALO_TRANSPARENCY = (1.00, 0.76, 0.18), 1.25, 0.55
+HIGHLIGHT_SCALE, HIGHLIGHT_TINT = 1.12, 0.35      # whole-fragment highlight: slightly larger, tinted toward gold
 BOND_COLOR, BOND_WIDTH = (0.55, 0.55, 0.58), 0.22
 OCTA_COLOR, OCTA_TRANSPARENCY = (0.78, 0.80, 0.86), 0.55
 TACHYON = dict(ambient_occlusion=True, ambient_occlusion_brightness=0.8, ambient_occlusion_samples=24,
@@ -52,6 +53,7 @@ class Cutout:
     focus: int | None              # index into positions of the focus atom (central image)
     bonds: list[tuple[int, int]] = field(default_factory=list)
     no_octahedron: list[int] = field(default_factory=list)   # metals bonded to an adsorbate donor
+    incomplete: list[int] = field(default_factory=list)      # metals missing a halide that the cutout cannot show
 
 
 def _frame(atoms: Atoms, normal_axis: int, face: str) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -196,17 +198,70 @@ def display_cutout(atoms: Atoms, focus: int, normal_axis: int = 2, face: str = "
                 if {S[i], S[j]} & set(HALIDES) and {S[i], S[j]} & {"O"} and frag[I[i]] != frag[I[j]]:
                     continue
                 bonds.append((i, int(j)))
-    no_oct = sorted({a for i, j in bonds for a, b in ((i, j), (j, i))
-                     if S[a] in METALS and S[b] in METAL_DONOR_BOND})
-    return Cutout(P, S, I, IMG, fidx, bonds, no_oct)
+    no_oct = {a for i, j in bonds for a, b in ((i, j), (j, i))
+              if S[a] in METALS and S[b] in METAL_DONOR_BOND}
+    # metals whose full halide shell cannot be shown (typically a neighbour image bonded to the dropped periodic
+    # copy of the focus fragment's halide) get no octahedron either: a partial polyhedron reads as a defect
+    from ase.neighborlist import neighbor_list
+    ii, jj = neighbor_list("ij", atoms, METAL_HALIDE_BOND)
+    true_cn = {int(m): int(np.sum((ii == m) & np.isin(sym[jj], HALIDES))) for m in np.flatnonzero(np.isin(sym, METALS))}
+    shown = {m: 0 for m in range(len(P)) if S[m] in METALS}
+    for i, j in bonds:
+        for a, b in ((i, j), (j, i)):
+            if a in shown and S[b] in HALIDES:
+                shown[a] += 1
+    incomplete = sorted(m for m, n in shown.items() if m not in no_oct and n < true_cn[int(I[m])])
+    return Cutout(P, S, I, IMG, fidx, bonds, sorted(no_oct | set(incomplete)), incomplete)
+
+
+def _hex(rgb) -> str:
+    return "#" + "".join(f"{int(round(255 * c)):02x}" for c in rgb)
+
+
+def cutout_to_web(c: Cutout, highlight: list[int] | None = None) -> dict:
+    """The cutout as plain data for a web viewer (3Dmol.js, three.js), so it draws the same atoms, bonds and
+    octahedra as the OVITO render instead of guessing bonds (3Dmol's guess drops most Pb-I bonds).
+
+    ``atoms``: element, x/y/z (A, display frame: outward normal +z, focus at the origin), hex colour, radius,
+    source index, image, role (focus | highlight | atom). ``bonds``: index pairs into ``atoms``.
+    ``octahedra``: per metal drawn with a polyhedron, the metal and its halide indices. ``style``: bond/octahedron
+    colours and transparencies."""
+    hl = set()
+    if highlight:
+        for h in highlight:
+            hl |= set(np.flatnonzero((c.source_index == h) & (c.image == 0).all(1)).tolist())
+    atoms = []
+    for k, (p, e) in enumerate(zip(c.positions, c.symbols)):
+        role = "focus" if k == c.focus else ("highlight" if k in hl else "atom")
+        col = FOCUS_COLOR if role == "focus" else COLORS.get(str(e), (0.6, 0.6, 0.6))
+        rad = RADII.get(str(e), 0.6) * (FOCUS_SCALE if role == "focus" else HIGHLIGHT_SCALE if role == "highlight" else 1)
+        atoms.append({"el": str(e), "x": float(p[0]), "y": float(p[1]), "z": float(p[2]), "color": _hex(col),
+                      "radius": float(rad), "source_index": int(c.source_index[k]),
+                      "image": [int(v) for v in c.image[k]], "role": role})
+    octa = []
+    skip = set(c.no_octahedron)
+    for m in np.flatnonzero(np.isin(c.symbols, METALS)):
+        if int(m) in skip:
+            continue
+        hal = sorted(int(b[0] if b[1] == m else b[1]) for b in c.bonds
+                     if m in b and c.symbols[b[0] if b[1] == m else b[1]] in HALIDES)
+        octa.append({"metal": int(m), "halides": hal})
+    return {"schema": "pvpassivator.cutout/1", "frame": "display: outward normal +z, focus at origin, A",
+            "atoms": atoms, "bonds": [[int(i), int(j)] for i, j in c.bonds], "octahedra": octa,
+            "no_octahedron": [int(m) for m in c.no_octahedron],
+            "style": {"bond_color": _hex(BOND_COLOR), "bond_radius": BOND_WIDTH / 2,
+                      "octahedron_color": _hex(OCTA_COLOR), "octahedron_opacity": 1 - OCTA_TRANSPARENCY}}
 
 
 def render(atoms: Atoms, out: str | Path, focus: int, normal_axis: int = 2, face: str = "top", view: str = "side",
            halo: list[int] | None = None, radius: float = 9.0, depth: float = 8.0, size=(1200, 900),
-           fov: float | None = None, view_dir=None, keep: list[int] | None = None) -> Path:
+           fov: float | None = None, view_dir=None, keep: list[int] | None = None,
+           highlight: list[int] | None = None) -> Path:
     """Render one view. ``view``: 'side' (orthographic, slight downward tilt), 'top' (orthographic, along -normal) or
     'persp' (oblique perspective with depth of field). ``halo``: input indices that get a gold halo (central image).
-    ``view_dir``: optional in-plane direction (display frame) to look along for 'side'; default +x of the display frame."""
+    ``view_dir``: optional in-plane direction (display frame) to look along for 'side'; default +x of the display frame.
+    ``highlight``: input indices (e.g. every atom of an adsorbed molecule) drawn slightly larger and tinted toward
+    gold, central image only; the focus atom keeps its magenta."""
     from ovito.data import DataCollection, ParticleType
     from ovito.pipeline import Pipeline, StaticSource
     from ovito.modifiers import SelectTypeModifier, CoordinationPolyhedraModifier, ClearSelectionModifier
@@ -216,12 +271,20 @@ def render(atoms: Atoms, out: str | Path, focus: int, normal_axis: int = 2, face
     label = c.symbols.astype("<U8")
     for m in c.no_octahedron:
         label[m] = label[m] + "_x"
+    for h in highlight or []:
+        for k in np.flatnonzero((c.source_index == h) & (c.image == 0).all(1)):
+            if k != c.focus:
+                label[k] = label[k] + "_hl"
     if c.focus is not None:
         label[c.focus] = "focus"
     pos = c.positions
     halo_pos = [pos[np.flatnonzero((c.source_index == h) & (c.image == 0).all(1))[0]] for h in (halo or [])]
     col = {n: COLORS.get(n.split("_")[0], (0.6, 0.6, 0.6)) for n in set(label)}
     rad = {n: RADII.get(n.split("_")[0], 0.6) for n in set(label)}
+    for n in set(label):
+        if n.endswith("_hl"):
+            col[n] = tuple((1 - HIGHLIGHT_TINT) * np.array(col[n]) + HIGHLIGHT_TINT * np.array(HALO_COLOR))
+            rad[n] = rad[n] * HIGHLIGHT_SCALE
     if c.focus is not None:
         col["focus"] = FOCUS_COLOR; rad["focus"] = RADII.get(c.symbols[c.focus], 0.7) * FOCUS_SCALE
     if halo_pos:

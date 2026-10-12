@@ -25,8 +25,16 @@ Example (`docs/figure_style_example.png`): iodate on a PbI₂-terminated FAPbI�
 - `top`: orthographic along −normal.
 - `persp`: oblique perspective (direction 0.62/0.45/−0.50) with depth of field focused on the focus atom.
 
-Same camera, scale and colours for every panel of one figure. Compose multi-panel figures with matplotlib in a
-separate process (OVITO and matplotlib clash on exit).
+Same camera, scale and colours for every panel of one figure. Compose multi-panel figures with
+`pvpassivator.compose.compose_panels` in a separate process (OVITO and matplotlib clash on exit): bold panel letters,
+optional titles, one element legend in the render colours, and a scale bar only when the renders' px/Å is known.
+
+- Highlight a whole adsorbed molecule with `render(..., highlight=[its atom indices])`: atoms ~12 % larger and tinted
+  toward the halo gold. Say "highlighted" in the caption: the tint shifts colours away from the legend discs.
+- A Pb whose octahedron cannot be shown complete (bonded to the dropped periodic copy of the focus fragment) is drawn
+  without one, like a Pb bonded to an adsorbate donor.
+- Web pages: export with `render.cutout_to_web(display_cutout(...))` and draw the listed bonds and octahedra; never
+  let the viewer guess bonds.
 
 ## Usage
 
