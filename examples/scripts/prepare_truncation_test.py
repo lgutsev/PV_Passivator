@@ -165,14 +165,14 @@ def main(argv=None) -> int:
     readme = [f"# {pkg}", "", "PBE test of 2D Coulomb kernel truncation (VASP KERNEL_TRUNCATION, >= 6.5.0) against "
               "the dipole correction for a charged perovskite slab. Fixed geometry, static only; nothing was "
               "submitted.", "", f"Slab: `{a.slab}` ({len(slab)} atoms), re-centred in cells of "
-              f"{', '.join(f'{L:g}' for L in lengths)} Ã… along axis {ax}. Charges {a.charges}. "
-              f"{len(jobs)} statics, Î“-only `vasp_gam`, {n_spin} spin-polarised doublets (odd electron count, NUPDOWN = 1).", "",
+              f"{', '.join(f'{L:g}' for L in lengths)} Å along axis {ax}. Charges {a.charges}. "
+              f"{len(jobs)} statics, Γ-only `vasp_gam`, {n_spin} spin-polarised doublets (odd electron count, NUPDOWN = 1).", "",
               "## Commands, in order (from this directory)", "",
-              f"1. `sbatch run_trunc_smoke.slurm` (1 job, 2 nodes, â‰¤ 1 h; est. 1â€“2 node-h). `{smoke_src}` with NELM=4. "
+              f"1. `sbatch run_trunc_smoke.slurm` (1 job, 2 nodes, ≤ 1 h; est. 1–2 node-h). `{smoke_src}` with NELM=4. "
               "DONE only if two SCF steps ran and OUTCAR mentions the truncation (otherwise exit 1). Read `timing.txt`, "
               "`truncation_echo.txt` and `tag_messages.txt` before the array.",
-              f"2. `sbatch run_trunc_static.slurm` ({len(jobs)} jobs, 2 nodes each, â‰¤ 8 h, at most 6 at once; "
-              "est. 40â€“100 node-h). Resubmitting skips finished jobs.", "",
+              f"2. `sbatch run_trunc_static.slurm` ({len(jobs)} jobs, 2 nodes each, ≤ 8 h, at most 6 at once; "
+              "est. 40–100 node-h). Resubmitting skips finished jobs.", "",
               "Outputs per job: OUTCAR, OSZICAR, vasprun.xml.gz, LOCPOT.gz (Hartree + ionic, LVHAR). "
               "Exports: `export.list` (outputs/*, logs/*).", "",
               "Analysis (locally): `python examples/scripts/analyze_truncation_test.py <this package>`."]
