@@ -250,3 +250,106 @@ def adsorption_bundle(root: str | Path, case_id: str, slab: Atoms, slab_rec, com
             "status": "prepared (not submitted)"}
     (root / "bundle.json").write_text(json.dumps(plan, indent=1))
     return plan
+
+
+O2_BOND_A = 1.21          # starting O=O length; relaxed in the reference job
+
+
+def _hamiltonian(spec: JobSpec) -> dict:
+    """Settings that must match across the jobs of one reaction energy (functional, cutoff, PAW, vdW,
+    smearing). ISPIN/NUPDOWN may differ (triplet O2) and so may k-points (molecule vs slab)."""
+    from .vasp_io import HAMILTONIAN_KEYS, INCAR_DEFAULTS, _norm_val
+    h = {}
+    for k in HAMILTONIAN_KEYS:
+        if k == "ISPIN":
+            continue
+        v = spec.incar.get(k, INCAR_DEFAULTS.get(k))
+        if v is not None:
+            h[k] = _norm_val(v)
+    h["POTCARS"] = dict(zip(spec.species_order, spec.potcars))
+    return h
+
+
+def check_matched_settings(specs: dict[str, JobSpec]) -> list[str]:
+    """Problems if the static jobs of one reaction differ in functional, cutoff or PAW variant per element."""
+    problems = []
+    items = list(specs.items())
+    ref_name, ref = items[0]
+    h0 = _hamiltonian(ref)
+    for name, sp in items[1:]:
+        h = _hamiltonian(sp)
+        for k in sorted((set(h0) | set(h)) - {"POTCARS"}):
+            if h0.get(k) != h.get(k):
+                problems.append(f"{name} {k}={h.get(k)} differs from {ref_name} {k}={h0.get(k)}")
+        for el in set(h0["POTCARS"]) & set(h["POTCARS"]):
+            if h0["POTCARS"][el] != h["POTCARS"][el]:
+                problems.append(f"{name} uses POTCAR {h['POTCARS'][el]} for {el}, {ref_name} uses {h0['POTCARS'][el]}")
+    return problems
+
+
+def oxidation_bundle(root: str | Path, case_id: str, slab: Atoms, slab_rec, product: Atoms, n_oxygen: int, *,
+                     profile_family: str = "r2scan_d3bj_v1", fix_bottom_A: float | None = None,
+                     o2_box: float = 15.0, overwrite: bool = False) -> dict:
+    """Linked jobs for   slab + n/2 O2(g, triplet) -> slab(oxyanion):
+        bare_slab/{relax,static}, product/{relax,static}, ref_O2/{relax,static} (ISPIN=2, NUPDOWN=2).
+    Atom balance is checked first; the static jobs must share functional, cutoff and PAW variants, or
+    nothing is kept. O2 enters only as a reservoir; any O2 binding-energy correction must be declared
+    later through ``ledger.ReferenceCorrection``."""
+    from .ledger import Species
+    from .oxidation import O2_REFERENCE, oxidation_reaction
+    if o2_box < 15.0:
+        raise ValueError("O2 reference box must be at least 15 A")
+
+    def comp(a):
+        c = {}
+        for s_ in a.get_chemical_symbols():
+            c[s_] = c.get(s_, 0) + 1
+        return c
+    rx = oxidation_reaction(Species("bare_slab", comp(slab)), Species("product", comp(product)), n_oxygen)
+    ax = slab_rec.normal_axis
+    if not np.allclose(slab.cell.array, product.cell.array, atol=1e-4):
+        raise ValueError("product and bare slab cells differ; the reaction energy needs one cell")
+    root = Path(root) / case_id
+    fixed = None
+    if fix_bottom_A:
+        from .surface import unwrap_along
+        h = unwrap_along(product, ax)
+        ids = product.arrays.get("atom_id", np.arange(len(product)))
+        org = product.arrays.get("origin", np.zeros(len(product), int))
+        fixed = [int(i) for i, z, o in zip(ids, h, org) if o == 0 and z - h.min() < fix_bottom_A]
+    kp = kpoints_for(slab, ax)
+    jobs, statics = {}, {}
+    for role, a in (("bare_slab", slab), ("product", product)):
+        r = write_job(a, root / role / "relax", f"{profile_family}/relax", role, normal_axis=ax,
+                      kpoints=kp, fixed_atom_ids=fixed, overwrite=overwrite)
+        st = write_job(a, root / role / "static", f"{profile_family}/static", role, normal_axis=ax,
+                       kpoints=kp, parents=[r.job_id], overwrite=overwrite)
+        st.links = {"geometry_from": f"{role}/relax/CONTCAR"}
+        jobs[role] = {"relax": asdict(r), "static": asdict(st)}
+        statics[role] = st
+    # slightly anisotropic box so the molecule axis is not degenerate with the cell
+    o2 = Atoms("O2", positions=[[0, 0, 0], [0, 0, O2_BOND_A]], cell=np.diag([o2_box, o2_box + 0.5, o2_box + 1.0]),
+               pbc=True)
+    o2.center()
+    m = O2_REFERENCE.spin_multiplicity
+    r = write_job(o2, root / "ref_O2" / "relax", f"{profile_family}/molecule_relax", "reference",
+                  multiplicity=m, kpoints=[1, 1, 1], overwrite=overwrite)
+    st = write_job(o2, root / "ref_O2" / "static", f"{profile_family}/molecule_static", "reference",
+                   multiplicity=m, kpoints=[1, 1, 1], parents=[r.job_id], overwrite=overwrite)
+    st.links = {"geometry_from": "ref_O2/relax/CONTCAR"}
+    jobs["ref_O2"] = {"relax": asdict(r), "static": asdict(st), "stoich": n_oxygen / 2}
+    statics["ref_O2"] = st
+    problems = check_matched_settings(statics)
+    if problems:
+        import shutil
+        shutil.rmtree(root)
+        raise ValueError("static jobs are not comparable:\n  " + "\n  ".join(problems))
+    plan = {"schema_version": "bundle/1", "case_id": case_id, "equation": rx.equation(), "energy_kind": "reaction",
+            "energy_definition": f"dE = E(product/static) - E(bare_slab/static) - {n_oxygen / 2:g} E(ref_O2/static); "
+                                 "energy_sigma0; negative = exothermic. Any O2 correction must be declared "
+                                 "explicitly (ledger.ReferenceCorrection), never assumed.",
+            "o2_reference": {"multiplicity": m, "ISPIN": 2, "NUPDOWN": m - 1, "box_A": o2_box,
+                             "start_bond_A": O2_BOND_A},
+            "fixed_bottom_A": fix_bottom_A, "kpoints": kp, "jobs": jobs, "status": "prepared (not submitted)"}
+    (root / "bundle.json").write_text(json.dumps(plan, indent=1))
+    return plan

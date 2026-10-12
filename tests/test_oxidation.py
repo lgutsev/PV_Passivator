@@ -278,3 +278,45 @@ def test_lead_iodate_rejects_halide_not_on_that_pb(tmp_path):
         pytest.skip("toy geometry: both halides also bridge the other Pb")
     with pytest.raises(ValueError, match="not bonded"):
         lead_iodate_poses(atoms, rec, other_pb, (x1, x2))
+
+
+def test_oxidation_bundle_writes_matched_jobs_with_triplet_o2(tmp_path):
+    import json
+    from dataclasses import replace
+    from pvpassivator.vaspprep import oxidation_bundle, check_matched_settings, JobSpec
+    atoms, rec = _surface(tmp_path)
+    full, spec = oxyanion_poses(atoms, rec, _top_inplane_iodide(atoms, rec), n_oxygen=3)[0]
+    plan = oxidation_bundle(tmp_path / "b", "io3_toy", atoms, rec, full, 3)
+    root = tmp_path / "b" / "io3_toy"
+    for role in ("bare_slab", "product", "ref_O2"):
+        for step in ("relax", "static"):
+            assert (root / role / step / "INCAR").exists()
+    incar = (root / "ref_O2" / "static" / "INCAR").read_text()
+    assert "ISPIN = 2" in incar and "NUPDOWN = 2" in incar
+    assert plan["jobs"]["ref_O2"]["stoich"] == 1.5 and "1.5O2(g)" in plan["equation"].replace(" ", "")
+    assert json.loads((root / "bundle.json").read_text())["o2_reference"]["box_A"] >= 15
+    # a static job with another cutoff must be caught
+    s = {k: JobSpec(**v["static"]) for k, v in plan["jobs"].items()}
+    s["product"] = replace(s["product"], incar={**s["product"].incar, "ENCUT": 400})
+    assert any("ENCUT" in p for p in check_matched_settings(s))
+    with pytest.raises(ValueError):
+        oxidation_bundle(tmp_path / "c", "small_box", atoms, rec, full, 3, o2_box=10.0)
+
+
+def test_declared_o2_correction_is_applied_only_when_passed():
+    from pvpassivator.ledger import ReferenceCorrection
+    from pvpassivator.oxidation import O2_REFERENCE
+    slab = Species("slab", {"Pb": 1, "I": 2})
+    prod = Species("prod", {"Pb": 1, "I": 2, "O": 3})
+    rx = oxidation_reaction(slab, prod, 3)
+    E = {"slab": -10.0, "prod": -30.0, O2_REFERENCE.name: -10.0}
+    plain = rx.delta_e(E)
+    assert plain["delta_E_total_eV"] == pytest.approx(-5.0) and "corrections_applied" not in plain
+    c = ReferenceCorrection("O2 overbinding fix", O2_REFERENCE.name, -0.5, "example fit, test only")
+    cor = rx.delta_e(E, corrections=(c,))
+    assert cor["delta_E_total_eV"] == pytest.approx(-5.0 + 1.5 * 0.5)
+    assert cor["delta_E_uncorrected_eV"] == pytest.approx(-5.0) and cor["corrections_applied"][0]["source"]
+    with pytest.raises(ValueError):
+        ReferenceCorrection("no source", O2_REFERENCE.name, -0.5, "  ")
+    with pytest.raises(ValueError):
+        rx.delta_e(E, corrections=(ReferenceCorrection("wrong", "H2(g)", 0.1, "x"),))

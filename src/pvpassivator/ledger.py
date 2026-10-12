@@ -209,21 +209,52 @@ class Reaction:
         if p:
             raise UnbalancedReaction(self.equation() + "\n  " + "\n  ".join(p))
 
-    def delta_e(self, energies: Mapping[str, float]) -> dict:
+    def delta_e(self, energies: Mapping[str, float], corrections: "tuple[ReferenceCorrection, ...]" = ()) -> dict:
         """Reaction energy from a {species name: energy (eV)} map. Refuses to run if
-        unbalanced or a reference energy is missing (never fabricates one)."""
+        unbalanced or a reference energy is missing (never fabricates one).
+
+        ``corrections`` are explicitly declared per-species energy shifts (e.g. an O2 binding-energy
+        correction); none is ever applied by default, and each one is reported in the output."""
         self.assert_balanced()
         missing = [s.name for _, s in self.reactants + self.products if s.name not in energies]
         if missing:
             raise MissingReference(f"No energy for: {missing}")
-        de = (sum(nu * energies[s.name] for nu, s in self.products)
-              - sum(nu * energies[s.name] for nu, s in self.reactants))
+        names = {s.name for _, s in self.reactants + self.products}
+        e = dict(energies)
+        applied = []
+        for c in corrections:
+            if c.species_name not in names:
+                raise ValueError(f"correction '{c.label}' targets {c.species_name}, which is not in {self.equation()}")
+            e[c.species_name] = e[c.species_name] + c.shift_eV
+            applied.append({"label": c.label, "species": c.species_name, "shift_eV": c.shift_eV, "source": c.source})
+
+        def total(en):
+            return (sum(nu * en[s.name] for nu, s in self.products)
+                    - sum(nu * en[s.name] for nu, s in self.reactants))
+        de = total(e)
         out = {"equation": self.equation(), "energy_kind": self.energy_kind,
                "delta_E_total_eV": de, "sign_convention": "negative = exothermic"}
+        if applied:
+            out["corrections_applied"] = applied
+            out["delta_E_uncorrected_eV"] = total(energies)
         if self.n_units:
             out["n_units"] = self.n_units
             out["delta_E_per_unit_eV"] = de / self.n_units
         return out
+
+
+@dataclass(frozen=True)
+class ReferenceCorrection:
+    """A declared energy shift (eV per unit of ``species_name``) with its source, e.g. a fitted O2
+    binding-energy correction. Used only when passed to ``Reaction.delta_e``; never a default."""
+    label: str
+    species_name: str
+    shift_eV: float
+    source: str
+
+    def __post_init__(self):
+        if not self.source.strip():
+            raise ValueError(f"correction '{self.label}' needs a source (paper, fit, or calculation)")
 
 
 class UnbalancedReaction(ValueError):
