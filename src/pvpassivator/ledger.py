@@ -31,6 +31,9 @@ KNOWN_UNITS: dict[str, tuple[str, int]] = {
 }
 
 
+HALIDE_OXO_BOND = 2.3   # A, halide-O distance treated as a covalent oxyanion bond (I-O in IO3- ~1.8)
+
+
 def register_unit(formula: Mapping[str, int] | str, label: str, charge: int) -> None:
     key = formula if isinstance(formula, str) else formula_key(formula)
     KNOWN_UNITS[key] = (label, int(charge))
@@ -113,15 +116,20 @@ def composition_of(symbols: Iterable[str]) -> dict[str, int]:
 def identify_units(atoms, mult: float = 1.15) -> tuple[dict[str, int], list[dict]]:
     """Split an ASE Atoms (periodic) into covalently bonded fragments and map them to
     known formal units. Returns (unit_counts, unknown_fragments). Pb-I bonds are NOT
-    treated as covalent (ionic lattice), so each Pb / I is its own unit.
+    treated as covalent (ionic lattice), so each Pb / I is its own unit. A halide with an O
+    within ``HALIDE_OXO_BOND`` is covalent instead, so oxyanions (IO3- etc.) stay whole.
     """
-    from ase.neighborlist import natural_cutoffs, NeighborList
+    from ase.neighborlist import natural_cutoffs, NeighborList, neighbor_list
     import numpy as np
 
     syms = atoms.get_chemical_symbols()
     cut = natural_cutoffs(atoms, mult=mult)
     ionic = {"Pb", "I", "Br", "Cl", "Cs", "Sn"}
-    cut = [0.0 if s in ionic else c for s, c in zip(syms, cut)]
+    oxo = set()
+    if "O" in syms:
+        ii, jj = neighbor_list("ij", atoms, HALIDE_OXO_BOND)
+        oxo = {int(i) for i, j in zip(ii, jj) if syms[i] in ("I", "Br", "Cl") and syms[j] == "O"}
+    cut = [0.0 if (s in ionic and k not in oxo) else c for k, (s, c) in enumerate(zip(syms, cut))]
     nl = NeighborList(cut, self_interaction=False, bothways=True, skin=0.0)
     nl.update(atoms)
     n = len(atoms)
