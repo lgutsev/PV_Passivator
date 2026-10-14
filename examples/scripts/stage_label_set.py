@@ -79,6 +79,8 @@ run_step() {
       while [ -f "$out/OUTCAR.seg$seg" ]; do seg=$((seg + 1)); done
       [ -f "$work/OUTCAR" ] && cp "$work/OUTCAR" "$out/OUTCAR.seg$seg"
       [ -f "$work/OSZICAR" ] && cp "$work/OSZICAR" "$out/OSZICAR.seg$seg"
+      # Keep energy/force trajectories before the next segment overwrites them.
+      [ -f "$work/vasprun.xml" ] && gzip -c "$work/vasprun.xml" > "$out/vasprun.xml.seg$seg.gz"
       echo "$job/$step: continuing from CONTCAR (previous segment kept as seg$seg)"
       cp "$work/CONTCAR" "$work/POSCAR"
     else

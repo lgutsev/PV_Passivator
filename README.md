@@ -16,6 +16,7 @@ Charge-balanced preparation and DFT-backed analysis for passivated FAPbI3 surfac
 | MLIP benchmark vs archived DFT (`benchmark.py`, `examples/scripts/run_mlip_singlepoints.py`, `analyze_mlip_benchmark.py`) | implemented: energy-only single points on DFT final structures, compared within one settings group (same k-mesh) via same-composition differences, per-element-offset LOO residuals and composition-matched E_ads |
 | Consistent DFT label sets (`examples/scripts/prepare_label_set.py`, `stage_label_set.py`, `labels.py`, `pvpass labels`) | implemented: one cell/k-mesh/profile per reaction family, cluster package with tested scripts, results reader with balance, settings and k-point checks |
 | UI | not started (pose generation is in `poses.py`, r2SCAN job prep in `vaspprep.py`) |
+| Neutral MLIP training infrastructure (`training_data.py`, export/configuration/preflight/evaluation scripts) | implemented and tested on synthetic fixtures; awaits qualified energy/force outputs and an independent validation bundle; see `docs/TRAINING_PILOT.md` |
 
 ## Usage
 
@@ -26,3 +27,7 @@ pvpass reproduce examples/recovered_cases_pbe335.json
 pvpass oxidize CONTCAR --out iodate_starts --n 3 --preset O-down
 pvpass labels <finished label-set package>      # E_ads per reaction + k-point check; refuses unfinished steps
 ```
+
+## First MLIP fine-tuning pilot
+
+See [the training protocol](docs/TRAINING_PILOT.md) for the energy/force exporter, complete-reference-bundle split policy, local-checkpoint MACE configuration and guarded launcher. Preparation does not download models or launch training. The current nine-salt campaign shares one slab reference and therefore forms one indivisible training bundle; independent validation data are still needed. Future generated cluster packages preserve XML relaxation segments across restarts.
