@@ -1,0 +1,13 @@
+{
+ "schema": "pvpass.searchspace/1", "kind": "combinatorial", "id": "rep03_heteroaryl_alkylammonium",
+ "author": "Claude Opus 5.5 (claude-opus-5-5), 2026-10-14, recorded verbatim as arm-C proposal 3 (no oracle feedback)",
+ "rationale": "Soft/borderline Lewis-base heteroatoms in the ring (S, N, O) as a second Pb2+ contact; heteroaromatic rings also shift the cation dipole. Variables: ring heteroatom set and linker length.",
+ "design_variables": ["heteroaromatic ring", "linker length 1-2", "ring methyl/halogen"],
+ "scaffolds": [
+  {"id": "L1", "smiles": "[NH3+]C[*:1]"},
+  {"id": "L2", "smiles": "[NH3+]CC[*:1]"}
+ ],
+ "substituents": {"1": ["[*]c1cccs1", "[*]c1ccsc1", "[*]c1ccc(Br)s1", "[*]c1ccc(C)s1", "[*]c1ccco1", "[*]c1ccoc1",
+                        "[*]c1ccccn1", "[*]c1cccnc1", "[*]c1ccncc1", "[*]c1nccs1", "[*]c1cncs1", "[*]c1ccc2ccccc2n1",
+                        "[*]c1cnccn1", "[*]c1ncccn1", "[*]c1ccc2sccc2c1", "[*]c1ccc(Cl)s1"]}
+}

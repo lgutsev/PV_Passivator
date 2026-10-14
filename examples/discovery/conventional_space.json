@@ -1,0 +1,18 @@
+{
+ "schema": "pvpass.searchspace/1", "kind": "combinatorial", "id": "conventional_grid_v1",
+ "author": "baseline B: generic ammonium-anchor x linker x R-group grid, written without reference to any proposal",
+ "rationale": "Standard combinatorial enumeration: primary ammonium anchor, 0-3 methylene linker, common substituents.",
+ "design_variables": ["linker length", "terminal group"],
+ "scaffolds": [
+  {"id": "C1", "smiles": "[NH3+]C[*:1]"},
+  {"id": "C2", "smiles": "[NH3+]CC[*:1]"},
+  {"id": "C3", "smiles": "[NH3+]CCC[*:1]"},
+  {"id": "C4", "smiles": "[NH3+]CCCC[*:1]"}
+ ],
+ "substituents": {"1": [
+  "[*][H]", "[*]C", "[*]CC", "[*]C(C)C", "[*]C(C)(C)C", "[*]C1CCCCC1", "[*]C(F)(F)F", "[*]C(F)(F)C(F)(F)F",
+  "[*]c1ccccc1", "[*]c1ccc(F)cc1", "[*]c1ccc(Cl)cc1", "[*]c1ccc(C)cc1", "[*]c1ccc(O)cc1", "[*]c1ccc(OC)cc1",
+  "[*]c1ccccn1", "[*]c1cccs1", "[*]c1ccco1", "[*]O", "[*]OC", "[*]C(=O)O", "[*]C#N", "[*]C(N)=O",
+  "[*]c1ccc2ccccc2c1", "[*]C1CC1", "[*]SC"
+ ]}
+}

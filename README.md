@@ -17,6 +17,7 @@ Charge-balanced preparation and DFT-backed analysis for passivated FAPbI3 surfac
 | Consistent DFT label sets (`examples/scripts/prepare_label_set.py`, `stage_label_set.py`, `labels.py`, `pvpass labels`) | implemented: one cell/k-mesh/profile per reaction family, cluster package with tested scripts, results reader with balance, settings and k-point checks |
 | UI | not started (pose generation is in `poses.py`, r2SCAN job prep in `vaspprep.py`) |
 | Neutral MLIP training infrastructure (`training_data.py`, export/configuration/preflight/evaluation scripts) | implemented and tested on synthetic fixtures; awaits qualified energy/force outputs and an independent validation bundle; see `docs/TRAINING_PILOT.md` |
+| Representation-based discovery prototype (`discovery/`, `examples/scripts/run_discovery_pilot.py`) | prototype, unit-tested (optional extra `[discovery]`, RDKit): Tier-0 ion eligibility, versioned scaffold/substituent representations that cannot touch objectives, hash-locked multi-objective spec + Pareto/hypervolume, Tanimoto-GP ParEGO optimizer, append-only store with budget/holdout, provider-independent proposers, device-referenced score (coverage → trap density → SCAPS PCE). Only exercised on a synthetic oracle; no physical results. See `docs/DISCOVERY_P2O.md` |
 
 ## Usage
 

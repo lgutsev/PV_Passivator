@@ -1,0 +1,9 @@
+{
+ "schema": "pvpass.searchspace/1", "kind": "combinatorial", "id": "anion_sulfonates_v1",
+ "author": "Claude Opus 5.5 (claude-opus-5-5), 2026-10-14; example of the anionic half of a co-passivating salt",
+ "rationale": "Sulfonate anchor for the oxide (SnO2) side, R-group sets the anion dipole. Enumerate with Eligibility.anion(); pair with a cation space for salt-level search.",
+ "design_variables": ["R group (alkyl, aryl, fused aryl, fluorinated)"],
+ "scaffolds": [{"id": "SO3", "smiles": "[O-]S(=O)(=O)[*:1]"}],
+ "substituents": {"1": ["[*]C", "[*]C(C)(C)C", "[*]C(F)(F)F", "[*]c1ccccc1", "[*]c1ccc(C)cc1", "[*]c1ccc2ccccc2c1",
+                        "[*]c1cccc2ccccc12", "[*]CCO", "[*]c1ccc(O)cc1", "[*]c1ccc(F)cc1"]}
+}

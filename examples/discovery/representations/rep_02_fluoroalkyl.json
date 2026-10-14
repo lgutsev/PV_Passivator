@@ -1,0 +1,15 @@
+{
+ "schema": "pvpass.searchspace/1", "kind": "combinatorial", "id": "rep02_fluoroalkyl_ammonium",
+ "author": "Claude Opus 5.5 (claude-opus-5-5), 2026-10-14, recorded verbatim as arm-C proposal 2 (no oracle feedback)",
+ "rationale": "Generalise TFPA+/PFPA+: separate the fluorinated segment (hydrophobicity, dipole orientation) from the spacer that sets how far the dipole sits from the anchor. Variables: spacer length and fluorinated tail.",
+ "design_variables": ["CH2 spacer length 1-4", "fluorinated tail (CF3 .. C4F9, CHF2, aryl-F)"],
+ "scaffolds": [
+  {"id": "s1", "smiles": "[NH3+]C[*:1]"},
+  {"id": "s2", "smiles": "[NH3+]CC[*:1]"},
+  {"id": "s3", "smiles": "[NH3+]CCC[*:1]"},
+  {"id": "s4", "smiles": "[NH3+]CCCC[*:1]"}
+ ],
+ "substituents": {"1": ["[*]C(F)(F)F", "[*]C(F)(F)C(F)(F)F", "[*]C(F)(F)C(F)(F)C(F)(F)F", "[*]C(F)(F)C(F)(F)C(F)(F)C(F)(F)F",
+                        "[*]C(F)F", "[*]CC(F)(F)F", "[*]c1c(F)c(F)c(F)c(F)c1F", "[*]c1ccc(C(F)(F)F)cc1",
+                        "[*]c1cc(F)cc(F)c1", "[*]C(C(F)(F)F)C(F)(F)F"]}
+}

@@ -1,0 +1,12 @@
+{
+ "schema": "pvpass.searchspace/1", "kind": "combinatorial", "id": "rep01_bidentate_aryl_ethylammonium",
+ "author": "Claude Opus 5.5 (claude-opus-5-5), 2026-10-14, recorded verbatim as arm-C proposal 1 (no oracle feedback)",
+ "rationale": "Multidentate binding: keep the ammonium anchor for A-site/V_FA filling and add a ring Lewis-base or H-bond donor at meta/para to reach an under-coordinated Pb or a neighbouring iodide. Variables: donor identity and ring position; ethyl linker fixed at the PEA length that fits the A-site cage.",
+ "design_variables": ["donor group (O, N, S, carbonyl, nitrile)", "ring position (meta vs para)"],
+ "scaffolds": [
+  {"id": "para", "smiles": "[NH3+]CCc1ccc([*:1])cc1"},
+  {"id": "meta", "smiles": "[NH3+]CCc1cccc([*:1])c1"}
+ ],
+ "substituents": {"1": ["[*][H]", "[*]O", "[*]OC", "[*]C(N)=O", "[*]C(=O)O", "[*]C#N", "[*]SC", "[*]N(C)C",
+                        "[*]C(=O)OC", "[*]S(N)(=O)=O", "[*]F", "[*]C(F)(F)F", "[*]OC(F)(F)F", "[*]NC(C)=O"]}
+}

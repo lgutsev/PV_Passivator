@@ -1,0 +1,29 @@
+{
+ "schema": "pvpass.searchspace/1", "kind": "library", "id": "expert_library_v1",
+ "author": "baseline A: common primary-ammonium passivator cations from the perovskite literature and the group's published work, in screening-priority order",
+ "provenance": "PEA+, TFPA+, PFPA+, TH+ (tyrammonium) and benzocaine-H+ are cations already studied with this group's DFT workflow (identities of the first four confirmed from the r2SCAN reference geometries); the rest are widely used alkyl/aryl ammonium passivators. Experimental status per molecule is NOT encoded here and must be checked before any novelty claim.",
+ "smiles": [
+  "[NH3+]CCc1ccccc1",
+  "[NH3+]CCC(F)(F)F",
+  "[NH3+]CC(F)(F)C(F)(F)F",
+  "[NH3+]CCc1ccc(O)cc1",
+  "CCOC(=O)c1ccc([NH3+])cc1",
+  "[NH3+]CCCC",
+  "[NH3+]CCCCCCCC",
+  "[NH3+]Cc1ccccc1",
+  "[NH3+]CCc1ccc(F)cc1",
+  "[NH3+]CCc1ccc(Cl)cc1",
+  "[NH3+]CCc1ccc(Br)cc1",
+  "[NH3+]CCc1ccc(OC)cc1",
+  "[NH3+]CCc1ccc(C(F)(F)F)cc1",
+  "[NH3+]CCc1cccs1",
+  "[NH3+]Cc1ccc(F)cc1",
+  "[NH3+]CC1CCCCC1",
+  "[NH3+]C12CC3CC(CC(C3)C1)C2",
+  "[NH3+]c1ccccc1",
+  "NC(=[NH2+])c1ccccc1",
+  "NC(N)=[NH2+]",
+  "[NH3+]CCCCC(=O)O",
+  "[NH3+]CCCCCC"
+ ]
+}

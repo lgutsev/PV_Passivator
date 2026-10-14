@@ -1,0 +1,12 @@
+{
+ "schema": "pvpass.searchspace/1", "kind": "combinatorial", "id": "rep04_amidinium_guanidinium",
+ "author": "Claude Opus 5.5 (claude-opus-5-5), 2026-10-14, recorded verbatim as arm-C proposal 4 (no oracle feedback)",
+ "rationale": "FA+-mimicking anchors: delocalised amidinium/guanidinium cations offer two N-H donors in the geometry of the lattice cation, which may refill V_FA with less strain than a primary ammonium. Variables: anchor type and the group on the central carbon/nitrogen.",
+ "design_variables": ["anchor (amidinium vs guanidinium)", "C/N substituent"],
+ "scaffolds": [
+  {"id": "amidinium", "smiles": "NC(=[NH2+])[*:1]"},
+  {"id": "guanidinium", "smiles": "NC(=[NH2+])N[*:1]"}
+ ],
+ "substituents": {"1": ["[*]C", "[*]CC", "[*]C(F)(F)F", "[*]c1ccccc1", "[*]c1ccc(F)cc1", "[*]Cc1ccccc1", "[*]CCc1ccccc1",
+                        "[*]c1cccs1", "[*]C1CCCCC1", "[*]CC(F)(F)F", "[*]c1ccc(OC)cc1", "[*]C(C)(C)C"]}
+}
