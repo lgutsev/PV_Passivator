@@ -2,7 +2,7 @@
  "id": "synthetic_engineering_v1",
  "notes": "ENGINEERING TEST ONLY. syn_* criteria come from SyntheticOracle (seeded random landscape); they have no physical meaning. sa_score is the real RDKit synthetic-accessibility score. Shape mirrors the physical spec: two objectives, two constraints.",
  "criteria": [
-  {"name": "syn_trap_suppression", "role": "objective", "direction": "max", "tier": "synthetic", "description": "stand-in for the device-referenced score"},
+  {"name": "syn_trap_suppression", "role": "objective", "direction": "max", "tier": "synthetic", "description": "stand-in for a physical objective such as trap removal"},
   {"name": "sa_score", "role": "objective", "direction": "min", "tier": "tier0", "description": "Ertl-Schuffenhauer SA score, 1 easy .. 10 hard"},
   {"name": "syn_binding", "role": "constraint", "lower": -2.0, "upper": -0.5, "tier": "synthetic", "description": "stand-in for a binding window"},
   {"name": "syn_integrity", "role": "constraint", "lower": -0.6, "tier": "synthetic", "description": "stand-in for surface integrity"}

@@ -14,7 +14,6 @@ from pvpassivator.discovery.oracles import (SyntheticOracle, CachedDFTOracle, No
 from pvpassivator.discovery.optimize import GPParEGO, TanimotoGP  # noqa: E402
 from pvpassivator.discovery.loop import run_pool, run_representation_loop  # noqa: E402
 from pvpassivator.discovery.proposer import ReplayProposer, CallableProposer, feedback_prompt  # noqa: E402
-from pvpassivator.discovery.score import DeviceResponse, ScoreModel, Descriptor, score  # noqa: E402
 
 
 def spec2():
@@ -217,37 +216,3 @@ def test_replay_proposer_exhausts(tmp_path):
     f.write_text("{}")
     r = ReplayProposer([f])
     assert r.propose("x")[0] == "{}" and r.propose("x")[0] == ""
-
-
-# --- device-referenced score --------------------------------------------------------------------------------------
-
-def toy_model():
-    # TOY response for tests only (monotone PCE drop with interface trap density); not SCAPS output.
-    resp = DeviceResponse((9.0, 10.0, 11.0, 12.0, 13.0, 14.0), (31.0, 30.5, 29.0, 25.0, 20.0, 16.0), "toy")
-    return ScoreModel(resp, n0_cm2=1e13, n_res_cm2=1e10, mu_eV=-0.5, temperature_K=373)
-
-
-def test_coverage_saturates_so_overbinding_is_not_rewarded():
-    m = toy_model()
-    th = m.coverage(np.array([-0.2, -0.5, -0.8, -1.5, -3.0]))
-    assert th[1] == pytest.approx(0.5) and th[3] > 0.999 and th[4] - th[3] < 1e-6
-    assert m.pce(-3.0, 0.9) == pytest.approx(m.pce(-1.5, 0.9), abs=1e-6)
-
-
-def test_trap_removal_and_new_traps_drive_the_score():
-    m = toy_model()
-    assert m.pce(-1.5, 0.99) > m.pce(-1.5, 0.5) > m.pce(-1.5, 0.0)
-    assert m.pce(-1.5, 0.99, n_new=5e12) < m.pce(-1.5, 0.99)
-    r = score(m, Descriptor(-1.5, 0.0, "dft"), Descriptor(0.99, 0.0, "dft"))
-    assert r.pce_p10 == pytest.approx(r.pce_p90) and r.delta_pce_mean > 0
-    u = score(m, Descriptor(-0.5, 0.3, "mlip"), Descriptor(0.9, 0.1, "dft_on_mlip_geometry"))
-    assert u.pce_p90 - u.pce_p10 > 1.0 and u.tiers["dg_bind"] == "mlip"
-
-
-def test_score_refuses_to_extrapolate_beyond_scaps_table():
-    m = toy_model()
-    with pytest.raises(ValueError, match="outside the SCAPS table"):
-        score(m, Descriptor(-2.0, 0.0), Descriptor(1.0, 0.0), Descriptor(1e15, 0.0))   # above the swept range
-    lo = DeviceResponse((10.5, 14.0), (29.5, 16.0), "toy")
-    with pytest.raises(ValueError, match="outside the SCAPS table"):
-        score(ScoreModel(lo, 1e13, 1e10, -0.5), Descriptor(-2.0, 0.0), Descriptor(1.0, 0.0))   # below it

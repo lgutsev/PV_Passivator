@@ -1,11 +1,45 @@
 {
- "id": "fapbi3_vfai_physical_v0",
- "notes": "Physical target specification (DRAFT, not yet computable end to end). Surface: alpha-FAPbI3(100) FAI-terminated 3x3 slab with one V_FA+V_I Schottky pair, r2SCAN+D3(BJ) profile r2scan_d3bj_v1 (package 53 layout). Thresholds marked PI-to-set must be fixed by the PI before any campaign; they are placeholders here and the loop refuses to change them.",
+ "id": "fapbi3_vfai_physical_v1",
+ "notes": "Physical target specification (DRAFT, not yet computable end to end). Surface: alpha-FAPbI3(100) FAI-terminated 3x3 slab with one V_FA+V_I Schottky pair, r2SCAN+D3(BJ) profile r2scan_d3bj_v1 (package 53 layout). Thresholds marked PI-to-set must be fixed by the PI before any campaign; they are placeholders here and the loop refuses to change them. v1 (2026-10-14): the SCAPS device-referenced composite score was removed (no SCAPS access); ranking is a Pareto front over physical descriptors.",
  "criteria": [
-  {"name": "pce_scaps", "role": "objective", "direction": "max", "units": "%", "tier": "score.py (DFT/MLIP descriptors -> N_it -> SCAPS)", "description": "device-referenced composite of coverage, trap removal and new traps"},
-  {"name": "sa_score", "role": "objective", "direction": "min", "tier": "tier0", "description": "synthetic practicality; kept separate from the device score"},
-  {"name": "dg_exchange_eV", "role": "constraint", "upper": 0.0, "units": "eV", "tier": "tier1_mlip -> tier2_dft", "description": "salt + V_FAI slab -> complex must be downhill under the declared reference (PI-to-set)"},
-  {"name": "pb_coordination_loss", "role": "constraint", "upper": 0, "units": "bonds", "tier": "tier1_mlip -> tier2_dft", "description": "surface integrity: no net loss of Pb-I bonds vs the bare slab after relaxation"},
-  {"name": "new_deep_states", "role": "constraint", "upper": 0, "units": "states", "tier": "tier2_dft", "description": "no passivant-derived state deeper than 0.3 eV from either band edge (PI-to-set)"}
+  {
+   "name": "trap_removal_eta",
+   "role": "objective",
+   "direction": "max",
+   "units": "fraction",
+   "tier": "tier2_dft (tier1 geometry proxy for pre-screening only)",
+   "description": "fraction of the targeted defect's in-gap states removed when the site is occupied (DFT PDOS/IPR)"
+  },
+  {
+   "name": "sa_score",
+   "role": "objective",
+   "direction": "min",
+   "tier": "tier0",
+   "description": "synthetic practicality; a separate Pareto axis"
+  },
+  {
+   "name": "dg_exchange_eV",
+   "role": "constraint",
+   "upper": 0.0,
+   "units": "eV",
+   "tier": "tier1_mlip -> tier2_dft",
+   "description": "salt + V_FAI slab -> complex must be downhill under the declared reference (PI-to-set)"
+  },
+  {
+   "name": "pb_coordination_loss",
+   "role": "constraint",
+   "upper": 0,
+   "units": "bonds",
+   "tier": "tier1_mlip -> tier2_dft",
+   "description": "surface integrity: no net loss of Pb-I bonds vs the bare slab after relaxation"
+  },
+  {
+   "name": "new_deep_states",
+   "role": "constraint",
+   "upper": 0,
+   "units": "states",
+   "tier": "tier2_dft",
+   "description": "no passivant-derived state deeper than 0.3 eV from either band edge (PI-to-set)"
+  }
  ]
 }

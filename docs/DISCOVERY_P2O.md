@@ -47,10 +47,10 @@ molecular identity in a GP with a molecular kernel.
 | MLIP | [R] `benchmark.py` (archive single points), `training_data.py` and the MACE pilot scripts | No validated passivation MLIP yet; domain-of-validity check per candidate is missing [P] |
 | Molecular representation, Tier 0 | none before this work | **added**: `discovery/chem.py`, `discovery/space.py` |
 | Objectives, Pareto, optimiser, loop, store | none | **added**: `discovery/objectives.py`, `optimize.py`, `loop.py`, `store.py`, `proposer.py` |
-| Device-level aggregation | none | **added**: `discovery/score.py` (inputs needed: a SCAPS sweep table and calibration) |
+| Device-level aggregation | none | **removed 2026-10-14**: a SCAPS-based score was prototyped and dropped (no SCAPS access); see §4 |
 
 **Reusable from InterfaceForge** (`../InterfaceForge`, inspected at file-name and README level only, so these are candidates, not commitments):
-- `committee.py`, `mlip_compare.py`: committee uncertainty, which supplies the `sigma` of MLIP descriptors in `score.py`.
+- `committee.py`, `mlip_compare.py`: committee uncertainty for the `sigma` of MLIP descriptors.
 - `audit.py`, `dft_evidence.py`, `vasp_provenance.py`: hash-bound DFT evidence.
 - `scheduler.py`, `campaign.py`: dry-run-by-default submission.
 - `surface/` phosphonate docking: an anchor-docking analogue for sulfonate/phosphonate anions.
@@ -60,7 +60,7 @@ None were imported; the discovery package has no InterfaceForge dependency.
 **Prior data that can be reused:**
 - r2SCAN label set v2 (package 53): nine salts on the FAI-Schottky slab. Results are still pending.
 - The legacy PBE+D3 spreadsheet. It is **not usable as labels**: the archive could not reproduce its slab energies (`WORKFLOW_AUDIT.md` §4).
-- The group's published experimental device data for PEAI, PEATFA, PEAAc, TFPACl, PFPACl and benzocaine-HCl. These are a calibration set for the score (§4). Device architectures differ between papers, so they must be recorded per data point.
+- The group's published experimental device data for PEAI, PEATFA, PEAAc, TFPACl, PFPACl and benzocaine-HCl. They can serve only as a qualitative cross-check of rankings: device architectures differ between papers, so they are recorded per data point and never fitted.
 
 The cation identities in the r2SCAN reference geometries were confirmed by bond perception:
 - PFPA⁺ = 2,2,3,3,3-pentafluoropropylammonium;
@@ -84,7 +84,7 @@ The PEAAc and PEATFA references are neutral amine·acid pairs, not ion pairs. Th
 
 | Criterion | Role | Computed from |
 |---|---|---|
-| device score `pce_scaps` | objective (max) | §4: coverage, trap removal and new traps fed into SCAPS |
+| trap removal `trap_removal_eta` | objective (max) | DFT PDOS/IPR: fraction of the defect's in-gap states removed (geometry proxy only for pre-screening) |
 | synthetic practicality `sa_score` | objective (min) | RDKit SA score (Tier 0) + vendor availability [P] |
 | exchange free energy `dg_exchange_eV` | constraint | MLIP screening → DFT |
 | surface integrity `pb_coordination_loss` | constraint | relaxed geometry (MLIP → DFT) |
@@ -93,39 +93,17 @@ The PEAAc and PEATFA references are neutral amine·acid pairs, not ion pairs. Th
 
 Adsorption energy alone is never the objective. `ObjectiveSpec` refuses a spec with fewer than two objectives.
 
-## 4. Composite score: device-referenced, not weighted
+## 4. No composite score (SCAPS score removed, 2026-10-14)
 
-A weighted sum of E_ads, gap states and dipole needs arbitrary weights. Instead, every electronic or energetic
-descriptor enters through a physical mechanism, and the drift–diffusion device model is the only aggregator
-(`discovery/score.py`):
+A device-referenced score (coverage → interface trap density → SCAPS PCE) was prototyped and then removed: SCAPS
+is not available to this project, so the sweep table and calibration it needs cannot be produced. A weighted sum
+of E_ads, gap states and dipole is not used either, because its weights would be arbitrary.
 
-```
-θ     = 1 / (1 + exp((ΔG_bind − μ) / kT))           coverage of the targeted defect site (saturating)
-N_it  = N_res + N0 (1 − θ η) + θ N_new              interface trap density
-PCE   = SCAPS(N_it [, Δχ])                          interpolated from a SCAPS-1D sweep, never extrapolated
-```
+Ranking is therefore a Pareto front over physical descriptors with declared tiers:
+- objectives: trap removal η (maximise) and SA score (minimise);
+- constraints: exchange free energy, surface integrity and no new deep states.
 
-| Symbol | Meaning | Source | Tier |
-|---|---|---|---|
-| ΔG_bind | Binding free energy against a declared reference state | MLIP screening → r2SCAN DFT | 1 → 2 |
-| η | Fraction of the defect's in-gap states removed when the site is occupied | DFT electronic structure (PDOS/IPR); MLIP geometry proxy (restored Pb coordination) only for pre-screening | 2 (1 proxy) |
-| N_new | Deep states the passivant adds | DFT | 2 |
-| Δχ | Interfacial dipole → band offset | DFT planar-averaged potential with dipole correction | 2 |
-| N0, N_res, μ, T | Device/processing calibration | SCAPS fit to measured devices; the group's experimental set | calibration |
-
-**Properties:**
-- **Saturation.** Binding much stronger than μ adds no score, so "more negative E_ads" is not rewarded without limit.
-- **Electronic effect required.** A molecule that binds strongly but leaves the trap in the gap (η≈0) scores like the bare surface.
-- **Penalty for new traps.** A passivant that adds deep states is penalised through the same device physics.
-- **Uncertainty.** It propagates by Monte Carlo, so MLIP numbers (larger σ) produce wide p10–p90 bands and cannot pass as DFT.
-- **Separate axes.** SA score, stability and integrity stay as their own Pareto axes or constraints. The device model does not contain them.
-
-**Validation before use** [P]:
-1. Fit μ, N0 and N_res on part of the experimental set.
-2. Predict ΔV_oc/ΔPCE for the held-out molecules.
-3. Report the rank correlation.
-
-With fewer than ten molecules from different device stacks this is a consistency check, not a validated model. That limit must be stated.
+Strong binding is a constraint, not an objective, so "more negative E_ads" is never rewarded on its own.
 
 ## 5. Architecture (implemented, `src/pvpassivator/discovery/`)
 
@@ -139,7 +117,6 @@ With fewer than ten molecules from different device stacks this is a consistency
 | `store.py` | Append-only JSONL; statuses hypothesis / prediction / computed / validated; dedup; budget; holdout split; resume | Holdout is excluded from optimizer and proposer views. |
 | `proposer.py` | `ReplayProposer`, `CallableProposer(fn)` (any provider); evidence-only feedback prompt | No provider SDK imported. Usage/tokens logged per proposal. |
 | `loop.py` | `run_pool` (arms A/B), `run_representation_loop` (arm C) | Failed proposals cost no evaluations and are logged separately. |
-| `score.py` | §4 | No extrapolation beyond the SCAPS table. |
 
 The FAPbI₃ specifics live only in the example JSONs (`examples/discovery/`). The modules know nothing about perovskites except the default eligibility.
 
@@ -185,10 +162,9 @@ Paired C − B: +0.04 ± 0.09, C better on 4 of 10 seeds. **No detectable differ
 | Legacy PBE spreadsheet values | Irreproducible slab energies (`WORKFLOW_AUDIT.md` §4) | Never used as labels. r2SCAN set v2 only. |
 | Charged defects, finite size | Spurious interactions in charged slabs | Neutral cells for screening. Package 55 must be analysed first. |
 | Dipole correction missing in archived runs | Work function / Δχ wrong | Dipole-corrected statics before any Δχ descriptor. |
-| MLIP transferability | Unseen organics on perovskite outside the training domain | Committee σ in the score. Domain check (element/fragment coverage, committee disagreement). DFT on everything that enters the front. |
+| MLIP transferability | Unseen organics on perovskite outside the training domain | Committee σ carried with every MLIP descriptor. Domain check (element/fragment coverage, committee disagreement). DFT on everything that enters the front. |
 | η from geometry proxies | Restored Pb coordination ≠ trap removal | Proxy only for pre-screening. η for any reported candidate from DFT electronic structure. |
 | SOC / band edges | PBE/r2SCAN without SOC misplace Pb-derived states | Relative trap-depth criteria only. Targeted SOC/hybrid checks on finalists (Tier 3). |
-| Score calibration | Fewer than 10 molecules, mixed device stacks | Leave-one-out rank check reported as a consistency check. Architecture recorded per point. |
 | Molecular feasibility / novelty | Non-purchasable or already-reported molecules | SA score now. Vendor and literature lookup before any novelty claim [P]. |
 | LLM leakage or goalpost moving | Inflated benefit | Protected fields refused. Hash-locked spec. Holdout excluded from prompts. Proposals logged with usage. |
 
@@ -198,7 +174,7 @@ Paired C − B: +0.04 ± 0.09, C better on 4 of 10 seeds. **No detectable differ
 |---|---|---|---|
 | 0 (done) | Prototype, synthetic pilot, tests | laptop | — |
 | 1 | Package 53 returns → `CachedDFTOracle`. Pose generator from SMILES. Electronic descriptors (η, N_new, Δχ) from returned r2SCAN statics. | Analysis only | Package 53 outputs |
-| 2 | Score calibration: SCAPS sweep table for the reference device; fit μ/N0/N_res on the experimental set; leave-one-out check | Laptop (SCAPS) | **PI review of calibration data and thresholds** |
+| 2 | (removed 2026-10-14: SCAPS score calibration; no SCAPS access) PI review of thresholds only | — | **PI review of thresholds** |
 | 3 | Tier-1 MLIP screen of the A/B/C pools (~230 molecules × ~5 poses), committee σ | ~1–3 GPU-days [I] | Validated MLIP on an independent bundle (`TRAINING_PILOT.md`); **PI approval** |
 | 4 | Matched-budget A/B/C with a live LLM proposer and DFT on the top ~10 per arm, ≥3 replicates where affordable | ~30 r2SCAN relax+static ≈ 10⁴ node-hours [I] | **PI approval; LONI desk** |
 | 5 | Tier 3 on 2–3 finalists: tighter settings, alternate poses, SOC check, moisture/thermal stress models | ~10³–10⁴ node-hours [I] | Stage-4 evidence |
