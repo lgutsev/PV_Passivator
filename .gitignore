@@ -4,3 +4,4 @@ __pycache__/
 .pytest_cache/
 data/benchmark/
 data/labels_*/
+data/bulk_refs_*/
