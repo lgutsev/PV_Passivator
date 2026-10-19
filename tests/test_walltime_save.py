@@ -67,4 +67,42 @@ def test_walltime_signal_saves_outputs(tmp_path):
 
 
 def test_generated_scripts_request_the_signal():
-    assert "#SBATCH --signal=B:USR1@1800" in S.SLURM
+    assert "#SBATCH --signal=B:USR1@{signal_s}" in S.SLURM
+    assert 'st.get("signal_margin_s", 1800)' in Path(S.__file__).read_text()   # default unchanged
+
+
+STALE_DRIVER = r'''set -eo pipefail
+source ./lib_pvpass.sh
+set -u
+module() { :; }
+srun() { "$@"; }
+POLL_S=0.2 SAVE_EVERY=3
+mkdir -p runs/j1/relax
+echo "LSTOP = .TRUE." > runs/j1/relax/STOPCAR      # left behind by a walltime kill
+run_step j1 relax relax || true
+'''
+
+
+@pytest.mark.skipif(BASH is None, reason="needs bash")
+def test_stale_stopcar_is_cleared_before_the_next_segment(tmp_path):
+    # desk 2026-10-19: the kill can land before LSTOP takes effect; the next segment must not stop after one step
+    potdir = tmp_path / "pot" / "Pb_d"
+    potdir.mkdir(parents=True)
+    (potdir / "POTCAR").write_text("   TITEL  = PAW_PBE Pb_d 06Sep2000\n")
+    lib = S.LIB.replace("__MODULE__", "vasp6/test").replace("__POTDIR__", (tmp_path / "pot").as_posix())
+    (tmp_path / "lib_pvpass.sh").write_bytes(lib.encode())
+    (tmp_path / "bin").mkdir()
+    short = FAKE_VASP.replace("seq 1 200", "seq 1 5").replace("sleep 0.3", "sleep 0.05")
+    (tmp_path / "bin" / "vasp_std").write_bytes(short.encode())
+    inp = tmp_path / "inputs" / "j1" / "relax"
+    inp.mkdir(parents=True)
+    for f, t in {"INCAR": "NSW = 5\n", "KPOINTS": "k\n0\nGamma\n1 1 1\n", "EXE": "vasp_std\n",
+                 "POTCAR.names": "Pb_d\n",
+                 "POSCAR": "x\n1.0\n5 0 0\n0 5 0\n0 0 5\nPb\n1\nDirect\n0 0 0\n"}.items():
+        (inp / f).write_bytes(t.encode())
+    (tmp_path / "driver.sh").write_bytes(STALE_DRIVER.encode())
+    r = subprocess.run([BASH, "-c", 'chmod +x bin/vasp_std; export PATH="$PWD/bin:$PATH"; bash driver.sh'],
+                       cwd=tmp_path, capture_output=True, text=True, timeout=60)
+    outcar = (tmp_path / "outputs" / "j1" / "relax" / "OUTCAR").read_text()
+    assert "LSTOP: stopping" not in outcar, r.stdout + r.stderr   # all 5 steps ran
+    assert outcar.count("energy  without entropy") == 5

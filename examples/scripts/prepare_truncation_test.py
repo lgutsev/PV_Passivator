@@ -148,6 +148,7 @@ def main(argv=None) -> int:
         lf(out / fname, SLURM.format(name=f"{pkg.split('_')[0]}-{key}", account=cl["account"],
                                      partition=cl["partition"], array=array, nodes=st["nodes"],
                                      ntasks=cl["ntasks_per_node"], time=st["time"],
+                                     signal_s=int(st.get("signal_margin_s", 1800)),
                                      output="%x_%A_%a.out" if n else "%x_%j.out", package=pkg, purpose=purpose,
                                      body=body).replace("stage_label_set.py", "prepare_truncation_test.py"))
     lf(out / "export.list", "outputs/*\nlogs/*\n")

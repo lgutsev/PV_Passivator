@@ -165,7 +165,8 @@ def main(argv=None) -> int:
         lf(out / fname, SLURM.replace("stage_label_set.py", "prepare_bulk_refs.py").format(
             name=f"{pkg.split('_')[0]}-{key}", account=cl["account"], partition=cl["partition"], array=array,
             nodes=st["nodes"], ntasks=cl["ntasks_per_node"], time=st["time"],
-            output="%x_%A_%a.out" if list_name else "%x_%j.out", package=pkg, purpose=purpose, body=body))
+            output="%x_%A_%a.out" if list_name else "%x_%j.out", package=pkg, purpose=purpose, body=body,
+            signal_s=int(st.get("signal_margin_s", 1800))))
 
     slurm("run_bulkref_smoke.slurm", "smoke", "one SCF step check (NELM=4)", "run_step smoke static smoke")
     slurm("run_bulkref_relax.slurm", "relax", "relax bulk phases (ISIF=3) and the molecule",
