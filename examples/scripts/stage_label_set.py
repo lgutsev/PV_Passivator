@@ -38,8 +38,13 @@ setup_vasp() {   # $1 = vasp_gam | vasp_std ; sets $vasp, refuses a binary from 
     "") echo "no $exe after module load __MODULE__" >&2; exit 2 ;;
     "$HOME"/bin/*) echo "$exe resolves to $vasp, not the module; check PATH" >&2; exit 2 ;;
   esac
-  for try in 1 2 3 4 5 6 7 8 9 10 11 12; do wrapper_ok && break; echo "$exe wrapper not ready (try $try)" >&2; sleep 15; done
-  wrapper_ok || { echo "$exe at $vasp is not a complete script after 3 min" >&2; exit 2; }
+  # The module wrapper can appear late on a fresh node (package 53, task 0): wait up to 10 min. Giving up is transient,
+  # not a calculation failure: exit 75 and leave TRANSIENT in the output dir, so a plain resubmission is the fix.
+  for try in $(seq 1 "${WRAPPER_TRIES:-40}"); do wrapper_ok && break; echo "$exe wrapper not ready (try $try)" >&2; sleep "${WRAPPER_WAIT_S:-15}"; done
+  wrapper_ok || { echo "$exe at $vasp is not a complete script after ${WRAPPER_TRIES:-40} tries; transient, resubmit" >&2
+                  [ -n "${out:-}" ] && date > "$out/TRANSIENT"; exit 75; }
+  [ -n "${out:-}" ] && rm -f "$out/TRANSIENT"
+  return 0
 }
 wrapper_ok() { [ -s "$vasp" ] && [ -x "$vasp" ] && [ "$(head -c 2 "$vasp")" = "#!" ]; }
 
