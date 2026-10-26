@@ -147,8 +147,11 @@ def main(argv=None) -> int:
     def job_pair(atoms, name, role, normal_axis, kpoints, prof_relax, prof_static, extra=None):
         ov = {**par.get("ref" if role == "reference" else "slab", {}), **(common if normal_axis is not None else {}),
               **(extra or {})}
+        # ``slab_relax_overrides`` (e.g. optimizer, EDIFFG) touch only the relax of slab-type jobs: geometry
+        # search settings, never the Hamiltonian or the statics that the energies come from
+        rov = {**ov, **(cfg.get("slab_relax_overrides", {}) if role in ("bare_slab", "complex") else {})}
         r = write_job(atoms, out / name / "relax", f"{fam}/{prof_relax}", role, normal_axis=normal_axis,
-                      kpoints=kpoints, overwrite=a.overwrite, overrides=ov)
+                      kpoints=kpoints, overwrite=a.overwrite, overrides=rov)
         s = write_job(atoms, out / name / "static", f"{fam}/{prof_static}", role, normal_axis=normal_axis,
                       kpoints=kpoints, parents=[r.job_id], overwrite=a.overwrite,
                       overrides={**ov, **cfg.get("static_overrides", {})})
