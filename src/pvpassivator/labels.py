@@ -23,11 +23,18 @@ def _composition(poscar: Path) -> dict[str, int]:
 def read_step(root: Path, job: str, step: str = "static", require_relax: bool = False) -> dict:
     out = root / "outputs" / job / step
     rec = {"job": job, "step": step, "energy_eV": None, "problems": []}
-    if not (out / "DONE").exists():
+    accepted = step == "relax" and not (out / "DONE").exists() and (out / "ACCEPTED").exists()
+    if not (out / "DONE").exists() and not accepted:
         rec["problems"].append("no DONE marker")
         return rec
     run = parse_run(out)
-    rec["problems"] += run.acceptance(require_relax=require_relax)
+    if accepted:
+        # owner acceptance (accept_relax.sh) replaces the ionic-convergence test, not the electronic-state checks;
+        # a walltime-stopped segment may lack the timing block, which only matters for the static that follows
+        rec["accepted"] = dict(line.split(": ", 1) for line in (out / "ACCEPTED").read_text().splitlines() if ": " in line)
+        rec["problems"] += [p for p in run.acceptance(require_relax=False) if not p.startswith("run did not finish")]
+    else:
+        rec["problems"] += run.acceptance(require_relax=require_relax)
     rec["energy_eV"] = run.energy_sigma0
     fp = run.fingerprint()
     fp.pop("KPOINTS", None)
@@ -65,7 +72,8 @@ def analyze(root: str | Path, k_tol: float = K_TOL) -> dict:
         lhs, rhs = [side.split(" + ") for side in r["equation"].split(" -> ")]
         names = [n.strip() for n in lhs + rhs]
         missing = [n for n in names if n not in ok]
-        row = {"name": r["name"], "equation": r["equation"], "E_ads_eV": None, "missing": missing}
+        row = {"name": r["name"], "equation": r["equation"], "E_ads_eV": None, "missing": missing,
+               "owner_accepted_relaxes": [n for n in names if "accepted" in relaxes.get(n, {})]}
         if not missing:
             sp = {n: Species(n, _composition(root / "inputs" / n / "static" / "POSCAR")) for n in names}
             rx = Reaction([(1, sp[n.strip()]) for n in lhs], [(1, sp[n.strip()]) for n in rhs],
@@ -96,4 +104,5 @@ def analyze(root: str | Path, k_tol: float = K_TOL) -> dict:
     problems = {f"{j}/{s}": r["problems"] for d, s in ((statics, "static"), (relaxes, "relax"))
                 for j, r in d.items() if r["problems"]}
     return {"package": root.name, "reactions": reactions, "kpoint_check": kc, "settings_problem": settings_problem,
-            "problems": problems, "n_static_ok": len(ok), "n_static": len(statics)}
+            "problems": problems, "n_static_ok": len(ok), "n_static": len(statics),
+            "accepted_relaxes": {j: r["accepted"] for j, r in relaxes.items() if "accepted" in r}}

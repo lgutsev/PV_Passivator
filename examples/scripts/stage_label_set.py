@@ -93,6 +93,8 @@ run_step() {
   local job=$1 step=$2 kind=$3 geo=${4:-}
   local inp="inputs/$job/$step" work="runs/$job/$step" out="outputs/$job/$step"
   [ -f "$out/DONE" ] && { echo "$job/$step already done"; return 0; }
+  # an owner-accepted relax (accept_relax.sh) is final: never continue it, even if the array is resubmitted
+  [ "$kind" = relax ] && [ -f "$out/ACCEPTED" ] && { echo "$job/$step accepted by the owner (ACCEPTED); not continued"; return 0; }
   mkdir -p "$work" "$out"
   setup_vasp "$(cat "$inp/EXE")"
   { echo "$(cat "$inp/EXE"): $vasp"; echo "LOADEDMODULES: ${LOADEDMODULES:-}"; date; hostname; } > "$out/vasp_binary.txt"
@@ -112,7 +114,9 @@ run_step() {
       cp "$inp/POSCAR" "$work/POSCAR"
     fi
   elif [ -n "$geo" ]; then
-    [ -f "outputs/$geo/relax/DONE" ] || { echo "$geo/relax is not DONE; run the relaxes first" >&2; exit 3; }
+    [ -f "outputs/$geo/relax/DONE" ] || [ -f "outputs/$geo/relax/ACCEPTED" ] \
+      || { echo "$geo/relax is neither DONE nor ACCEPTED; run the relaxes first" >&2; exit 3; }
+    [ -f "outputs/$geo/relax/DONE" ] || echo "$geo/relax: using the owner-accepted geometry (ACCEPTED)"
     cp "outputs/$geo/relax/CONTCAR" "$work/POSCAR"
   else
     cp "$inp/POSCAR" "$work/POSCAR"
@@ -156,6 +160,41 @@ cd "$SLURM_SUBMIT_DIR"
 source ./lib_pvpass.sh
 set -u
 {body}
+'''
+
+ACCEPT = r'''#!/bin/bash
+# Owner acceptance of an unfinished relax (plain bash + awk). Use only after the job's segment has ENDED.
+#   bash accept_relax.sh JOB FMAX_MAX_eV_per_A DE10_MAX_meV "who decided, why"
+# Measures the last max force (last OUTCAR force block) and |E(last) - E(last-10)| over all segments (OSZICAR.segN +
+# OSZICAR), refuses if either exceeds the thresholds, and writes outputs/JOB/relax/ACCEPTED with the numbers, the note,
+# the user, the date and the CONTCAR sha256. The static then starts from that CONTCAR. Never write DONE by hand:
+# DONE means VASP reached EDIFFG; ACCEPTED means the owner accepted the geometry.
+set -euo pipefail
+cd "$(dirname "$0")"
+[ $# -eq 4 ] || { echo "usage: bash accept_relax.sh JOB FMAX_MAX DE10_MAX_meV \"note\"" >&2; exit 2; }
+job=$1 fmax_max=$2 de_max=$3 note=$4
+out=outputs/$job/relax work=runs/$job/relax
+[ -d "inputs/$job/relax" ] || { echo "no relax step for $job" >&2; exit 2; }
+[ -f "$out/DONE" ] && { echo "$job/relax is already DONE; nothing to accept" >&2; exit 2; }
+[ -f "$out/ACCEPTED" ] && { echo "$job/relax is already ACCEPTED:" >&2; cat "$out/ACCEPTED" >&2; exit 2; }
+for f in "$out/CONTCAR" "$out/OUTCAR" "$out/OSZICAR" "$work/CONTCAR"; do [ -s "$f" ] || { echo "missing $f" >&2; exit 2; }; done
+cmp -s "$out/CONTCAR" "$work/CONTCAR" || { echo "outputs CONTCAR differs from runs CONTCAR: is the segment still running or unsaved?" >&2; exit 2; }
+fmax=$(awk '/TOTAL-FORCE/{blk=1; m=0; getline; next} blk && /^ ---/{blk=0; last=m; next}
+            blk{f=sqrt($4*$4+$5*$5+$6*$6); if(f>m) m=f} END{printf "%.4f", last}' "$out/OUTCAR")
+segs=$(ls -v "$out"/OSZICAR.seg* 2>/dev/null || true)   # seg1, seg2, ..., seg10 in order
+read -r nsteps de < <(cat $segs "$out/OSZICAR" | awk '/ F= /{n++; for(i=1;i<=NF;i++) if($i=="F=") e[n]=$(i+1)+0}
+            END{d=(n>10)? (e[n]-e[n-10])*1000 : 1e9; printf "%d %.1f\n", n, d}')
+ok=$(awk -v f="$fmax" -v fm="$fmax_max" -v d="$de" -v dm="$de_max" 'BEGIN{ad=(d<0)?-d:d; print (f<=fm && ad<=dm)?"yes":"no"}')
+echo "$job: last max force $fmax eV/A (limit $fmax_max), E(last)-E(last-10) $de meV (limit $de_max), $nsteps ionic steps"
+[ "$ok" = yes ] || { echo "REFUSED: outside the owner's thresholds; nothing written" >&2; exit 1; }
+{ echo "accepted: owner acceptance of an unfinished relax (not VASP convergence)"
+  echo "job: $job"; echo "date: $(date -Is)"; echo "user: ${USER:-unknown}"; echo "note: $note"
+  echo "last_max_force_eV_per_A: $fmax"; echo "threshold_max_force: $fmax_max"
+  echo "dE_last10_meV: $de"; echo "threshold_dE_last10_meV: $de_max"; echo "ionic_steps_all_segments: $nsteps"
+  echo "contcar_sha256: $(sha256sum "$out/CONTCAR" | awk '{print $1}')"
+  echo "incar_ediffg: $(awk -F= '/^ *EDIFFG/{gsub(/ /,"",$2); print $2}' "inputs/$job/relax/INCAR")"
+} > "$out/ACCEPTED"
+cat "$out/ACCEPTED"
 '''
 
 GATE = r'''#!/bin/bash
@@ -238,6 +277,7 @@ def main(argv=None) -> int:
     lf(out / "lib_pvpass.sh", lib)
     tol = cl.get("bulk_gate_tol", 0.005)
     lf(out / "check_bulk_gate.sh", GATE.replace("__TOL__", str(tol)))
+    lf(out / "accept_relax.sh", ACCEPT)
 
     def slurm(fname, key, purpose, body, list_name=None):
         st = stages[key]
@@ -289,6 +329,10 @@ def main(argv=None) -> int:
     readme += ["", "Every step writes `outputs/<job>/<step>/DONE` only on real completion (relax: reached required "
                "accuracy; static: EDIFF reached and vasprun complete). Steps already DONE are skipped, so any script "
                "can be resubmitted safely.", "",
+               "Owner acceptance of an unfinished relax: after its segment has ended, `bash accept_relax.sh JOB "
+               "FMAX_MAX DE10_MAX_meV \"note\"` measures the last max force and the 10-step energy change, refuses "
+               "outside the thresholds, and writes `outputs/JOB/relax/ACCEPTED` (never DONE). An ACCEPTED relax is not "
+               "continued; its static starts from that CONTCAR, and PV_Passivator reports it as owner-accepted.", "",
                "k-point check: dk(X) = E(kcheck_X) − E(X/static); the Γ-only set stands if "
                "|dk(complex) − dk(slab)| < 0.02 eV.", "",
                "Exports: `export.list` (outputs/*, logs/*)."]

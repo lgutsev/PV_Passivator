@@ -156,7 +156,9 @@ def export_dataset(packages, out, split_plan=None, stride=1):
             records[key] = {'package': str(root), 'job': name}
             for step in ('relax', 'static'):
                 folder = root / 'outputs' / name / step
-                if not (folder / 'DONE').exists():
+                # an owner-accepted relax (accept_relax.sh writes ACCEPTED, never DONE) supplies frames like a finished one
+                accepted = step == 'relax' and not (folder / 'DONE').exists() and (folder / 'ACCEPTED').exists()
+                if not (folder / 'DONE').exists() and not accepted:
                     rejected.append({'job': key, 'step': step, 'reason': 'missing DONE'})
                     continue
                 xmls = sorted(folder.glob('vasprun.xml.seg*.gz'))
@@ -168,7 +170,9 @@ def export_dataset(packages, out, split_plan=None, stride=1):
                     suffix = xml.name.removeprefix('vasprun.xml').removesuffix('.gz')
                     oc = 'OUTCAR' + suffix if suffix.startswith('.seg') else 'OUTCAR'
                     run = parse_run(folder, outcar=oc)
-                    bad = run.acceptance(require_relax=(step == 'relax' and oc == 'OUTCAR'))
+                    bad = run.acceptance(require_relax=(step == 'relax' and oc == 'OUTCAR' and not accepted))
+                    if accepted:
+                        bad = [b for b in bad if not b.startswith('run did not finish')]
                     if run.cell_charge is None or abs(run.cell_charge) > 1e-6:
                         bad.append('neutral electron count unverified')
                     if int(float(run.incar.get('ISPIN', 1))) != 1 or str(run.incar.get('LSORBIT', '')).strip('.').upper() in ('TRUE', 'T'):
@@ -191,7 +195,8 @@ def export_dataset(packages, out, split_plan=None, stride=1):
                         source_hash = sha256(xml)
                         for i, at in selected_frames:
                             at.info.update(job_id=key, step=step, source_sha256=source_hash, frame_index=i,
-                                           energy_kind='vasp_free_energy', cell_charge=0, config_type=manifest['jobs'][name]['role'])
+                                           energy_kind='vasp_free_energy', cell_charge=0, config_type=manifest['jobs'][name]['role'],
+                                           relax_owner_accepted=bool(accepted))
                             frames.append(at)
                         if extracted:
                             runs.append(run)

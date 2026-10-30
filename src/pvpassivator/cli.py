@@ -77,6 +77,9 @@ def main(argv=None) -> int:
             for n, v in kc["verdicts"].items():
                 print(f"k-check {n}: " + ("not available" if v is None else
                       f"k-error {v['k_error_eV']:+.4f} eV -> {'PASS' if v['pass'] else 'FAIL'} (tol {kc['tolerance_eV']} eV)"))
+        for j, acc in r.get("accepted_relaxes", {}).items():
+            print(f"NOTE: {j}/relax was accepted by the owner, not converged by VASP "
+                  f"(max force {acc.get('last_max_force_eV_per_A')} eV/A, dE10 {acc.get('dE_last10_meV')} meV): {acc.get('note')}")
         if r["settings_problem"]:
             print("WARNING:", r["settings_problem"])
         print(f"{r['n_static_ok']}/{r['n_static']} statics usable; {len(r['problems'])} steps with problems")
