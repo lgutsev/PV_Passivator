@@ -18,6 +18,14 @@ Config (JSON):
 }
 "cation+halide": the passivator cation as relaxed in the complex plus a halide on the most outward N-H direction
 at ``dist`` A (a uniform starting geometry; the relaxation sets the real one).
+
+Optional:
+  "slab_relax_overrides": {...}   relax-only INCAR settings of the bare slab and complexes (optimizer, EDIFFG)
+  "freeze_beyond_A": 10.0         in each complex relax, atoms farther than this from the salt are snapped onto the
+                                  set's bare slab (``slab_dir``, which should be the CONVERGED slab) and frozen
+                                  (selective dynamics; organic cations whole). The far field then cancels in E_ads.
+  "freeze_max_snap_mean_A": 0.15  refuse a complex whose far field is farther than this from the slab on average:
+                                  it was not built on this slab (rebuild it first)
 """
 from __future__ import annotations
 
@@ -144,20 +152,23 @@ def main(argv=None) -> int:
     par = cfg.get("parallel", {})          # NCORE/KPAR per role; performance only, not part of the Hamiltonian
     common = {}                            # settings shared by every slab-type job (filled from the bare slab)
 
-    def job_pair(atoms, name, role, normal_axis, kpoints, prof_relax, prof_static, extra=None):
+    def job_pair(atoms, name, role, normal_axis, kpoints, prof_relax, prof_static, extra=None, fixed=None):
         ov = {**par.get("ref" if role == "reference" else "slab", {}), **(common if normal_axis is not None else {}),
               **(extra or {})}
         # ``slab_relax_overrides`` (e.g. optimizer, EDIFFG) touch only the relax of slab-type jobs: geometry
         # search settings, never the Hamiltonian or the statics that the energies come from
         rov = {**ov, **(cfg.get("slab_relax_overrides", {}) if role in ("bare_slab", "complex") else {})}
         r = write_job(atoms, out / name / "relax", f"{fam}/{prof_relax}", role, normal_axis=normal_axis,
-                      kpoints=kpoints, overwrite=a.overwrite, overrides=rov)
+                      kpoints=kpoints, overwrite=a.overwrite, overrides=rov, fixed_atom_ids=fixed)
         s = write_job(atoms, out / name / "static", f"{fam}/{prof_static}", role, normal_axis=normal_axis,
                       kpoints=kpoints, parents=[r.job_id], overwrite=a.overwrite,
                       overrides={**ov, **cfg.get("static_overrides", {})})
         manifest["jobs"][name] = {"relax": f"{name}/relax", "static": f"{name}/static",
                                   "static_geometry_from": f"{name}/relax/CONTCAR", "role": role,
                                   "kpoints": kpoints, "natoms": len(atoms)}
+        if fixed:
+            manifest["jobs"][name]["freeze_beyond_A"] = cfg["freeze_beyond_A"]
+            manifest["jobs"][name]["n_frozen"] = len(fixed)
         statics[name] = s
         return s
 
@@ -198,6 +209,18 @@ def main(argv=None) -> int:
     for case in cfg["cases"]:
         name = case["name"]
         cx = load_slab(Path(case["complex_dir"]), f"complex_{name}")
+        frozen = None
+        if cfg.get("freeze_beyond_A"):
+            # far field frozen at the set's (converged) bare slab: identical by construction, cancels in E_ads
+            from pvpassivator.spectator import freeze_far_field
+            cx, frozen, frep = freeze_far_field(slab, cx, float(cfg["freeze_beyond_A"]))
+            manifest["structures"][f"complex_{name}"]["freeze"] = frep
+            lim = cfg.get("freeze_max_snap_mean_A", 0.15)   # a transplanted complex snaps ~0; 53 TFPA ~0.06, PEACl 0.43
+            if frep["snap_mean_A"] > lim:
+                raise ValueError(f"complex_{name}: its far field is {frep['snap_mean_A']} A from the slab on average "
+                                 f"(> {lim}); it was not built on this slab, so rebuild it before freezing")
+            if min_distance(cx) < 0.75:
+                raise ValueError(f"complex_{name}: atoms closer than 0.75 A after snapping the far field")
         rs = case["ref"]
         if rs["kind"] == "file":
             ref = read(rs["path"], format="vasp")
@@ -216,7 +239,7 @@ def main(argv=None) -> int:
                       [(1, Species(f"complex_{name}", comp(cx)))], energy_kind="adsorption_relaxed", n_units=1,
                       label=name)
         rx.assert_balanced()
-        job_pair(cx, f"complex_{name}", "complex", ax, kp, "relax", "static")
+        job_pair(cx, f"complex_{name}", "complex", ax, kp, "relax", "static", fixed=frozen)
         job_pair(ref, f"ref_{name}", "reference", None, [1, 1, 1], "molecule_relax", "molecule_static")
         manifest["structures"][f"ref_{name}"] = {**ref_src, "formula": formula_key(comp(ref)),
                                                  "min_interatomic_A": min_distance(ref)}

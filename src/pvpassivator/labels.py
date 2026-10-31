@@ -61,6 +61,9 @@ def _spectator(root: Path, jobs: dict, names: list[str], relaxes: dict, cutoff: 
             return {"available": False, "reason": f"{n}/relax/CONTCAR missing"}
     from ase.io import read
     try:
+        # a complex relaxed with a frozen far field (prepare_label_set freeze_beyond_A) is checked at that radius:
+        # beyond it the match is by construction, and the shell just inside it shows whether the response decayed
+        cutoff = float(jobs[cx[0]].get("freeze_beyond_A", cutoff))
         r = spectator_mismatch(read(root / "outputs" / slab[0] / "relax" / "CONTCAR", format="vasp"),
                                read(root / "outputs" / cx[0] / "relax" / "CONTCAR", format="vasp"), cutoff, limit)
     except ValueError as exc:
@@ -105,7 +108,9 @@ def analyze(root: str | Path, k_tol: float = K_TOL, spectator_cutoff: float = CU
             row["E_ads_eV"] = rx.delta_e({n: ok[n] for n in names})["delta_E_per_unit_eV"]
         row["spectator"] = _spectator(root, jobs, names, relaxes, spectator_cutoff, spectator_limit)
         # a failed check keeps the number but flags it: the energy includes a spectator-state difference
-        row["E_ads_flagged"] = row["E_ads_eV"] is not None and row["spectator"].get("pass") is False
+        sp = row["spectator"]
+        row["E_ads_flagged"] = row["E_ads_eV"] is not None and (sp.get("pass") is False
+                                                               or sp.get("shell", {}).get("pass") is False)
         reactions.append(row)
 
     kc = None
@@ -133,4 +138,6 @@ def analyze(root: str | Path, k_tol: float = K_TOL, spectator_cutoff: float = CU
     return {"package": root.name, "reactions": reactions, "kpoint_check": kc, "settings_problem": settings_problem,
             "problems": problems, "n_static_ok": len(ok), "n_static": len(statics),
             "accepted_relaxes": {j: r["accepted"] for j, r in relaxes.items() if "accepted" in r},
-            "spectator_failed": [row["name"] for row in reactions if row["spectator"].get("pass") is False]}
+            "spectator_failed": [row["name"] for row in reactions if row["spectator"].get("pass") is False],
+            "spectator_shell_failed": [row["name"] for row in reactions
+                                       if row["spectator"].get("shell", {}).get("pass") is False]}

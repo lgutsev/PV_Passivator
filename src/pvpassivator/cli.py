@@ -71,8 +71,12 @@ def main(argv=None) -> int:
         for row in r["reactions"]:
             e = row["E_ads_eV"]
             sp = row.get("spectator", {})
-            spec = (f"spectator {sp['mean_A']:.3f} A mean, {sp['max_A']:.2f} max -> "
+            spec = (f"spectator >{sp['cutoff_A']:g} A {sp['mean_A']:.3f} A mean, {sp['max_A']:.2f} max -> "
                     f"{'ok' if sp['pass'] else 'FLAG: slab state differs far from the salt'}"
+                    + (f"; shell {sp['shell']['range_A'][0]:g}-{sp['shell']['range_A'][1]:g} A "
+                       f"{sp['shell']['mean_A']:.3f} A -> "
+                       f"{'ok' if sp['shell']['pass'] else 'FLAG: response not decayed at the radius'}"
+                       if sp.get("shell", {}).get("n") else "")
                     if sp.get("available") else f"spectator n/a ({sp.get('reason')})")
             print(f"{row['name']:10s} {('%+.3f eV' % e) if e is not None else 'n/a':>11s}  "
                   f"{'missing: ' + ', '.join(row['missing']) + '  ' if row['missing'] else ''}{spec}")
@@ -87,6 +91,9 @@ def main(argv=None) -> int:
         if r.get("spectator_failed"):
             print("WARNING: spectator check failed for " + ", ".join(r["spectator_failed"])
                   + "; their E_ads include a slab-state difference (docs/PACKAGE53_RELAX_DIAGNOSIS.md)")
+        if r.get("spectator_shell_failed"):
+            print("WARNING: boundary-shell check failed for " + ", ".join(r["spectator_shell_failed"])
+                  + "; enlarge freeze_beyond_A or check those complexes")
         if r["settings_problem"]:
             print("WARNING:", r["settings_problem"])
         print(f"{r['n_static_ok']}/{r['n_static']} statics usable; {len(r['problems'])} steps with problems")
