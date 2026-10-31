@@ -3,6 +3,8 @@
 Layout: ``manifest.json`` at the package root, inputs in ``inputs/<job>/<step>/``, results in
 ``outputs/<job>/<step>/`` with OUTCAR and a ``DONE`` marker. Only steps with DONE and an accepted OUTCAR are used;
 anything else is reported, never filled in. Reactions are rebuilt from the job compositions and must balance.
+Each slab + salt -> complex reaction also gets a spectator-consistency check (``spectator.py``): far from the salt, the
+relaxed complex must match the relaxed bare slab, or its E_ads is flagged.
 """
 from __future__ import annotations
 
@@ -11,6 +13,7 @@ import json
 
 from .ledger import Species, Reaction
 from .vasp_io import parse_run
+from .spectator import spectator_mismatch, CUTOFF_A, LIMIT_MEAN_A
 
 K_TOL = 0.02          # eV, accepted |dk(complex) - dk(slab)| for a Gamma-only set
 
@@ -45,7 +48,28 @@ def read_step(root: Path, job: str, step: str = "static", require_relax: bool = 
     return rec
 
 
-def analyze(root: str | Path, k_tol: float = K_TOL) -> dict:
+def _spectator(root: Path, jobs: dict, names: list[str], relaxes: dict, cutoff: float, limit: float) -> dict:
+    """Spectator check for one reaction from the final relax CONTCARs of its bare slab and complex."""
+    slab = [n for n in names if jobs.get(n, {}).get("role") == "bare_slab"]
+    cx = [n for n in names if jobs.get(n, {}).get("role") == "complex"]
+    if len(slab) != 1 or len(cx) != 1:
+        return {"available": False, "reason": "reaction is not one bare slab + one complex"}
+    for n in slab + cx:
+        if relaxes.get(n, {}).get("problems"):
+            return {"available": False, "reason": f"{n}/relax not usable"}
+        if not (root / "outputs" / n / "relax" / "CONTCAR").exists():
+            return {"available": False, "reason": f"{n}/relax/CONTCAR missing"}
+    from ase.io import read
+    try:
+        r = spectator_mismatch(read(root / "outputs" / slab[0] / "relax" / "CONTCAR", format="vasp"),
+                               read(root / "outputs" / cx[0] / "relax" / "CONTCAR", format="vasp"), cutoff, limit)
+    except ValueError as exc:
+        return {"available": False, "reason": str(exc)}
+    return {"available": True, "slab": slab[0], "complex": cx[0], **r}
+
+
+def analyze(root: str | Path, k_tol: float = K_TOL, spectator_cutoff: float = CUTOFF_A,
+            spectator_limit: float = LIMIT_MEAN_A) -> dict:
     root = Path(root)
     m = json.loads((root / "manifest.json").read_text())
     jobs = m["jobs"]
@@ -79,6 +103,9 @@ def analyze(root: str | Path, k_tol: float = K_TOL) -> dict:
             rx = Reaction([(1, sp[n.strip()]) for n in lhs], [(1, sp[n.strip()]) for n in rhs],
                           energy_kind="adsorption_relaxed", n_units=1, label=r["name"])
             row["E_ads_eV"] = rx.delta_e({n: ok[n] for n in names})["delta_E_per_unit_eV"]
+        row["spectator"] = _spectator(root, jobs, names, relaxes, spectator_cutoff, spectator_limit)
+        # a failed check keeps the number but flags it: the energy includes a spectator-state difference
+        row["E_ads_flagged"] = row["E_ads_eV"] is not None and row["spectator"].get("pass") is False
         reactions.append(row)
 
     kc = None
@@ -105,4 +132,5 @@ def analyze(root: str | Path, k_tol: float = K_TOL) -> dict:
                 for j, r in d.items() if r["problems"]}
     return {"package": root.name, "reactions": reactions, "kpoint_check": kc, "settings_problem": settings_problem,
             "problems": problems, "n_static_ok": len(ok), "n_static": len(statics),
-            "accepted_relaxes": {j: r["accepted"] for j, r in relaxes.items() if "accepted" in r}}
+            "accepted_relaxes": {j: r["accepted"] for j, r in relaxes.items() if "accepted" in r},
+            "spectator_failed": [row["name"] for row in reactions if row["spectator"].get("pass") is False]}

@@ -70,8 +70,12 @@ def main(argv=None) -> int:
         r = analyze(a.package)
         for row in r["reactions"]:
             e = row["E_ads_eV"]
+            sp = row.get("spectator", {})
+            spec = (f"spectator {sp['mean_A']:.3f} A mean, {sp['max_A']:.2f} max -> "
+                    f"{'ok' if sp['pass'] else 'FLAG: slab state differs far from the salt'}"
+                    if sp.get("available") else f"spectator n/a ({sp.get('reason')})")
             print(f"{row['name']:10s} {('%+.3f eV' % e) if e is not None else 'n/a':>11s}  "
-                  f"{'missing: ' + ', '.join(row['missing']) if row['missing'] else ''}")
+                  f"{'missing: ' + ', '.join(row['missing']) + '  ' if row['missing'] else ''}{spec}")
         kc = r["kpoint_check"]
         if kc:
             for n, v in kc["verdicts"].items():
@@ -80,6 +84,9 @@ def main(argv=None) -> int:
         for j, acc in r.get("accepted_relaxes", {}).items():
             print(f"NOTE: {j}/relax was accepted by the owner, not converged by VASP "
                   f"(max force {acc.get('last_max_force_eV_per_A')} eV/A, dE10 {acc.get('dE_last10_meV')} meV): {acc.get('note')}")
+        if r.get("spectator_failed"):
+            print("WARNING: spectator check failed for " + ", ".join(r["spectator_failed"])
+                  + "; their E_ads include a slab-state difference (docs/PACKAGE53_RELAX_DIAGNOSIS.md)")
         if r["settings_problem"]:
             print("WARNING:", r["settings_problem"])
         print(f"{r['n_static_ok']}/{r['n_static']} statics usable; {len(r['problems'])} steps with problems")
