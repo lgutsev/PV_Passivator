@@ -40,15 +40,22 @@
 - Only atoms within 8 Å of the salt move; everything else stays fixed at the relaxed-slab positions.
 - This removes transplant strain without touching the spectators.
 
-**A4. DFT relax of the rebuilt complexes.** Owner choice:
-- (i) all atoms free, the v2 convention. The spectators start at the slab minimum, so drift should be small.
-- (ii) selective dynamics freezing atoms more than about 10 Å from the salt: far fewer degrees of freedom and a faster finish.
+**A4. DFT relax of the rebuilt complexes: freeze the far field (revised 2026-10-31).**
+- Each rebuilt complex relaxes with selective dynamics. Atoms more than R from the salt are frozen at the converged bare slab's positions; everything within R relaxes. Start with R = 10 Å.
+- **Why the free relax is no longer recommended:** the spectator check (61cfd91) on the latest CONTCARs shows that even TFPACl and TFPAI, which started consistent with the slab (0.055 and 0.047 Å), drifted to 0.36 and 0.28 Å.
+  - The drift is mostly FA reorientation: N moved 0.44–0.61 Å, C about 0.25 Å.
+  - The Pb–I framework moved as well: Pb 0.11–0.26 Å, I 0.20–0.31 Å.
+  - It barely decays with distance: TFPACl 0.38 / 0.36 / 0.32 Å at 8 / 10 / 12 Å.
+  - So the far region has many near-degenerate minima, and two independent relaxations need not end in the same one. A free relax would need luck for every complex.
+- **Freezing makes the far field identical by construction,** so it cancels in E_ads. It also cuts the degrees of freedom: roughly 170 of about 300 non-H atoms lie beyond 10 Å from the salt in this cell.
+- **The frozen reference must be a converged bare slab.** It has itself moved 0.31–0.55 Å since its start. A1 comes first.
+- **Convergence test** on two complexes (one TFPA, one PEA), relaxed with R = 8 and R = 10 Å: accept R when E_ads changes by less than about 0.02 eV.
+- **Code needed:** a `freeze_beyond_A` option in `prepare_label_set.py`, which writes the selective-dynamics flags from each complex's distance to its salt (the same adsorbate identification as `spectator.py`).
 
-I recommend (i) with the A5 check, and (ii) only as a fallback for a complex whose spectators drift.
-
-**A5. Acceptance check for E_ads.** Add it to `pvpass labels`: final complex vs final slab, spectator mismatch (atoms > 10 Å from the salt, after Pb alignment) below 0.1 Å.
-- This also applies to TFPACl and TFPAI. They started consistent (0.04 Å), but are drifting now (0.15–0.30 Å), because their slab part relaxes independently of the bare slab.
-- If they fail, rebuild them on the final slab like the other seven.
+**A5. Acceptance check for E_ads (built: `pvpass labels`, commit 61cfd91).**
+- With A4, the far-field atoms match by construction, so the frozen-region check becomes a consistency test of the inputs.
+- **Add a boundary-shell check:** the mean displacement of the free atoms between R − 2 Å and R from the salt, relative to the bare slab. If it is large, the response has not decayed at R; increase R.
+- The current all-free complexes (the nine on rev 5.1) will be flagged by the existing check. Their statics remain training frames, not labels.
 
 **A6. Packaging.** Revision 5 of 53, or a new number; the desk decides.
 - Seven complex inputs change (new structure hashes), and `kcheck_complex_PEAAc` follows the rebuilt PEAAc.
@@ -70,7 +77,7 @@ I recommend (i) with the A5 check, and (ii) only as a fallback for a complex who
 ## Owner decisions
 
 1. A0: fine-tune a pre-relaxer, and where (LONI GPU package or laptop)?
-2. A4: free relax with the A5 check (recommended), or freeze the far region?
+2. A4: freeze the far field at the converged bare slab (now recommended, R = 10 Å with an 8/10 Å convergence test), or keep the free relax?
 3. Start A2 on the *current* slab geometry now to save calendar time? Not recommended: the slab is still dropping about 10 meV per step, so the spectator states would diverge again.
 4. Revision 5 or a new package number: the desk decides once staged.
 
