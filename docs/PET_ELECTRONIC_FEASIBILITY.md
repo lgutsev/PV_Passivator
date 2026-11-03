@@ -181,7 +181,7 @@ Consequences:
 - **Frame:** x is the slab normal and the ammonium N is the origin. All cations are +1.
 - **Inputs (`data/cache/pet_dipole/cation_gaussian/`):** a Gaussian input per cation, plus a neutral cation + anion
   pair input where the anion can be identified (Cl, acetate, TFA). The pair dipole is origin-independent.
-- **Not yet run:** there is no local DFT engine (no PySCF, Psi4, xTB or WSL).
+- **Where it ran:** on LONI as package 87, since there is no local DFT engine (no PySCF, Psi4, xTB or WSL).
 - **Afterwards:** `analyze` reads the `.log` files and ranks p_x against ΔV_ads.
 
 Geometry-only proxies, computed now:
@@ -190,6 +190,47 @@ Geometry-only proxies, computed now:
 |---|---|---|
 | F_out = Σ x(F) − x(N) | +0.77 (tie-aware) | Only the fluorinated/non-fluorinated split (5 of 9 tie at 0). Within the 4 fluorinated salts it is −0.60, i.e. reversed: PFPA has more outward F, yet TFPA shifts ΔV more. |
 | Tail length (centroid − N) | −0.75 | The same split; −0.20 within the 5 non-fluorinated salts. |
+
+**Results (LONI package 87, Gaussian 09 ωB97X-D/def2-TZVP, 15/15 normal terminations, 3 Nov 2026) [M].**
+p_x is along the slab normal. +x points into the slab, because the passivated face is low-x.
+
+| Salt | Cation p_N,x (e·Å, about N) | Pair p_x (e·Å, neutral) | ΔV_ads (eV) |
+|---|---|---|---|
+| PEAAc | −0.767 | −0.022 | +0.233 |
+| THCl | −0.816 | +0.395 | +0.075 |
+| PEACl | −0.779 | +0.427 | +0.056 |
+| PEAI | −0.770 | – | +0.046 |
+| PEATFA | −0.778 | +0.495 | +0.007 |
+| PFPACl | −0.132 | +1.208 | (−0.015, relax unfinished) |
+| PFPAI | −0.116 | – | −0.079 |
+| TFPACl | +0.059 | +1.506 | −0.135 |
+| TFPAI | +0.047 | – | −0.166 |
+
+**Neutral pair (cation + anion in the bound geometry).**
+- Rank: Spearman −1.00 over 6 salts; Pearson r −0.92.
+- Linear fit: ΔV_ads = +0.17 − 0.20·p_x eV, with residual RMS 44 meV. Without the provisional PFPACl: r −0.95,
+  RMS 39 meV.
+- The pair dipole is the only descriptor that separates acetate from TFA (PEAAc vs PEATFA, 0.23 eV apart).
+- **The slope is physical.** It equals the bare Helmholtz value −e/(ε₀A) = −0.49 eV/(e·Å) screened by
+  ε_eff ≈ 2.2–2.5.
+- **The sign is physical.** A dipole pointing into the slab raises the passivated face's work function.
+- **The +0.17 eV intercept** is the slab's own response (restructuring, charge transfer), which a gas-phase pair
+  cannot contain.
+
+**Cation alone.**
+- Rank: Spearman −0.80 over 9 salts; −0.80 within the 4 fluorinated salts.
+- It fixes the order the geometry proxy reversed: the TFPA cation dipole (+0.05) exceeds PFPA's (−0.12), and TFPA
+  shifts ΔV more.
+- It is blind to the anion. All PEA cations come out at −0.77 ± 0.01 e·Å, so PEAAc is off by +152 meV.
+
+**Verdict.**
+- **What it is:** the bound-geometry pair dipole is a good **ranking** descriptor (r² ≈ 0.85).
+- **What it is not:** a ΔV predictor. 40 meV residuals exceed the 20–30 meV target, and it misses the substrate term.
+- **Limits:** n = 6, one of them provisional; a different functional than the slab labels; and it needs the bound
+  geometry. That geometry is exactly where the counter-ion sensitivity bites, so screening would need a trusted
+  MLIP pre-relax of each complex first.
+- **Relevance to PET:** this is the one place the paper's demonstrated domain helps directly. Neutral H/C/N/O/F/Cl
+  molecules are what a SPICE-α dipole model covers, so the descriptor could be produced cheaply at screening scale.
 
 **What it can and cannot settle:**
 - A cation-only descriptor cannot capture the 0.23 eV anion spread within the PEA salts. The pair dipoles are the
