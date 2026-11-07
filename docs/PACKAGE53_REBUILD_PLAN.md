@@ -117,6 +117,7 @@
 
 **A6. Packaging.** Revision 5 of 53, or a new number; the desk decides.
 - **Staged 2026-11-07 as a revision-6 candidate:** `LONI_staging/revision6_a4/` with `HANDOFF_TO_DISPATCH_53_REV6.md` (not yet sent to the desk). Complex tasks 1–9 and the R = 8 Å tests as tasks 10–11. The revision-5.1 complex `runs/` and `outputs/` must be moved aside first; they are kept as training frames. Estimated 600–3400 node-h; the owner confirms before submission.
+- **Taken in 2026-11-07 as revision 6 of 53** (desk caf5dbe; 50bbc35 records the fix with --rerun). The desk's diff matched the hand-off exactly. Nothing has changed on LONI yet. The owner still has to decide on the PFPACl 5.1 segment (1156149_5) and give the go for the relax array. The 5.1 complex work then moves to `runs_rev5/` and `outputs_rev5/` and comes back in the next export.
 - Seven complex inputs change (new structure hashes), and `kcheck_complex_PEAAc` follows the rebuilt PEAAc.
 - The revision-4 outputs of the seven move to `outputs_rev4/` and stay training frames; nothing is deleted.
 - Generate with commit a8442ac or later, with `signal_margin_s: 3600` for `relax_slab`.
