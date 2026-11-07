@@ -43,6 +43,7 @@
   - In 5 of 9 (PEAAc, PEATFA, PEACl, PFPACl, TFPACl) the anion sits on a surface I site, and that iodide fills V_I (4–9 Å away).
   - Only THCl and PFPAI have the cation in V_FA as built.
   - The composition is still slab + salt, so E_ads is defined. But the cation-at-V_FA / anion-at-V_I check in the bullets above does not hold as written.
+  - **Owner decision (2026-11-07): keep the archived sites** (decision 5). The check that applies instead is the tool's: each site stays in its local Pb frame.
 - **What the tool does with this:** it moves such an exchanged unit with the salt (it is "relocated") when either the unit's complex position or the slab site it vacated lies within 8 Å of the salt. Every other atom sits exactly at its slab position.
 - **Salt identification fixed in `spectator.align`:** the salt is now the fragments whose formula never occurs in the slab. Per-element matching had swapped salt H/C with lattice FA atoms. This also corrects the adsorbate set used by `pvpass labels` (A5) and `freeze_beyond_A`.
 - **Dry-run result** (slab CONTCAR sha 972f6436d50775d5; complex CONTCARs; output `data/cache/rebuild_a2_dryrun`, not committed):
@@ -107,7 +108,7 @@
 2. A4: freeze the far field at the converged bare slab (now recommended, R = 10 Å with an 8/10 Å convergence test), or keep the free relax?
 3. Start A2 on the *current* slab geometry now to save calendar time? Not recommended: the slab is still dropping about 10 meV per step, so the spectator states would diverge again.
 4. Revision 5 or a new package number: the desk decides once staged.
-5. **(new, 2026-11-07)** Keep the archived sites (salt on an exchanged A-site and, for five, on a surface I site; the tool's default)? Or place the salt into the slab's own V_FA / V_I? The second is a new adsorption geometry, not a transplant. The tool does not do it.
+5. **Decided (owner, 2026-11-07): keep the archived sites.** That means the salt on an exchanged A-site and, for five complexes, on a surface I site, which is the tool's default. The alternative, placing the salt into the slab's own V_FA / V_I, would have been a new adsorption geometry rather than a transplant.
 
 ## A0 status (2026-10-27): draft package ready, not staged
 
