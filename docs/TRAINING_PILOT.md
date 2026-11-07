@@ -63,3 +63,30 @@ Official MACE fine-tuning interface consulted 13 October 2026: https://mace-docs
 ## Current limitation
 
 Infrastructure is ready for returning force-bearing labels; no trained passivation checkpoint or held-out improvement is claimed. Existing staged package 53 is unchanged. Regenerate/restage a new reviewed package to use the XML preservation change; do not silently patch a package already submitted.
+
+## Multi-family PBE-D3(0) extension (branch `mlip-pbsn-gb`, 7 November 2026)
+
+Written for the Cs/FA Pb/Sn iodide grain-boundary MLIP (PVSK Collab Desk, UNIROMA_P2 MLIP plan, step M0). Everything is
+opt-in through the package manifest; existing label-set packages export exactly as before (same tests).
+
+- **Families and cells.** `family` (package or job level) tags each frame. `cell_policy: "per_job"` replaces the
+  common-slab-cell rule: fixed-cell runs (ISIF < 3) must keep their input cell; variable-cell runs may change it.
+  One Hamiltonian is required everywhere; the k-mesh must agree within a family (different cell sizes go in
+  different families, or are cross-checked first).
+- **Bundles without reactions.** `bundles: [[job, ...], ...]` makes MD trajectories, relaxation paths or reference
+  groups indivisible split units. The connected-bundle split policy is unchanged.
+- **Stress.** Job `stress: true` requires the vasprun stress tensor on every frame and stores `REF_stress` in ASE
+  Voigt order and sign (eV/A^3; `-0.1 GPa x kB`, checked against `ase.io.read` on an archived ISIF = 4 run). Only for
+  cells without vacuum. Frames without stress carry `config_stress_weight = 0`. `prepare_mace_finetune.py
+  --stress-weight W` writes MACE `loss: stress`, `stress_key: REF_stress`.
+- **Element set.** `--elements pbsn-gb` (H C N O S Cl I Cs Sn Pb) or `pbsn-gb-f` (+F). Electron-count, atom-order
+  and neutrality checks are unchanged.
+- **VASP on-the-fly MLFF.** Job `kind: "vasp_mlff"` reads `OUTCAR` + `ML_AB` of an `ML_LMODE`/`ML_MODE = train` run and
+  keeps only steps computed by DFT with a converged SCF that match an ML_AB entry (positions, forces, energy and
+  stress cross-checked). The ML-step markers and ML_AB layout are taken from VASP 6.3-6.4 documentation and tested on
+  synthetic fixtures only: check the first real run with `pvpassivator.vasp_mlff.mlff_dft_frames` before exporting.
+- **D3(0) subtraction.** `examples/scripts/subtract_d3.py DATASET --out NEW --backend s-dftd3|torch-dftd` writes E-D3,
+  F-D3, sigma-D3 targets (VASP IVDW = 11 parameters checked), keeps `DFT_*` and `D3_*`, and refuses frames already
+  subtracted. Add the same backend back at run time, once.
+- **Multihead.** `prepare_mace_finetune.py --multihead --replay-file LOCAL.extxyz`; MACE 0.3.16 defaults to
+  multihead fine-tuning and would otherwise download its replay set, so a local replay file is required.
