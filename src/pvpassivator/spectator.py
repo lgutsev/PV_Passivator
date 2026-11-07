@@ -68,9 +68,32 @@ def _translation(slab: Atoms, cx: Atoms, tie_A: float = 0.05) -> np.ndarray:
     return min(unique, key=lambda t: _assign_cost(slab, cx, t))
 
 
+def _formula(sym) -> str:
+    c = Counter(sym)
+    return "".join(f"{e}{c[e]}" for e in sorted(c))
+
+
+def _salt_fragments(slab: Atoms, cx: Atoms, extra: Counter) -> np.ndarray:
+    """Complex atoms in covalent fragments whose formula never occurs in the slab (the salt's cation and molecular or
+    foreign anions), if they fit inside the composition difference; else none (the caller falls back to matching).
+
+    Per-element matching alone can trade a salt H or C with a lattice FA atom; whole fragments cannot."""
+    from .poses import fragments
+    ss, cs = np.array(slab.get_chemical_symbols()), np.array(cx.get_chemical_symbols())
+    known = {_formula(ss[g]) for g in fragments(slab)}
+    idx = [i for g in fragments(cx) if _formula(cs[g]) not in known for i in g]
+    if not idx or Counter(cs[idx]) - extra:
+        return np.array([], dtype=int)
+    return np.array(sorted(idx), dtype=int)
+
+
 def align(slab: Atoms, cx: Atoms) -> dict:
     """Rigid translation t (complex frame + t = slab frame), slab->complex atom matching, adsorbate indices, and the
-    displacement of every matched slab atom (minimum image)."""
+    displacement of every matched slab atom (minimum image).
+
+    The adsorbate is first the complex's fragments with formulas foreign to the slab (``_salt_fragments``); the rest of
+    the composition difference (e.g. an iodide counter-ion on an iodide slab) is the complex atoms left over by the
+    per-element one-to-one matching."""
     if not np.allclose(slab.cell.array, cx.cell.array, atol=1e-4):
         raise ValueError("slab and complex cells differ; compare structures of one label set only")
     ss, cs = np.array(slab.get_chemical_symbols()), np.array(cx.get_chemical_symbols())
@@ -79,10 +102,12 @@ def align(slab: Atoms, cx: Atoms) -> dict:
         raise ValueError("the complex lacks atoms that the slab has")
     t = _translation(slab, cx)
     P = cx.positions + t
+    salt = set(_salt_fragments(slab, cx, extra).tolist())
     match = np.full(len(slab), -1)
     disp = np.full(len(slab), np.nan)
     for e in np.unique(ss):
-        a, b = np.flatnonzero(ss == e), np.flatnonzero(cs == e)
+        a = np.flatnonzero(ss == e)
+        b = np.array([i for i in np.flatnonzero(cs == e) if i not in salt], dtype=int)
         C = _dist(slab.positions[a], P[b], slab.cell)
         r, c = linear_sum_assignment(C)
         match[a[r]], disp[a[r]] = b[c], C[r, c]

@@ -36,6 +36,33 @@
 - Acceptance: minimum distance ≥ 1.0 Å, no H–lattice contact shorter than in the archived complex, and a spectator mismatch to the slab of 0 by construction.
 - A new repo tool is needed: `examples/scripts/rebuild_on_slab.py`, with a unit test, writing a JSON report per complex.
 
+**A2 status (2026-11-07): tool built, dry run on the converged slab.** `rebuild_on_slab.py` + `tests/test_rebuild_on_slab.py`.
+- **The bare slab is converged:** `outputs/slab_FAI_Schot/relax` is DONE (29 Oct; "reached required accuracy", EDIFFG −0.03). So A1 is done.
+- **The archived complexes do not put the salt into the slab's vacancies.** Matching whole lattice units (Pb, I, FA molecules), not atoms:
+  - In 7 of 9 the cation sits on an A-site that the slab fills with FA, and that FA sits on the slab's V_FA (3–7 Å away).
+  - In 5 of 9 (PEAAc, PEATFA, PEACl, PFPACl, TFPACl) the anion sits on a surface I site, and that iodide fills V_I (4–9 Å away).
+  - Only THCl and PFPAI have the cation in V_FA as built.
+  - The composition is still slab + salt, so E_ads is defined. But the cation-at-V_FA / anion-at-V_I check in the bullets above does not hold as written.
+- **What the tool does with this:** it moves such an exchanged unit with the salt (it is "relocated") when either the unit's complex position or the slab site it vacated lies within 8 Å of the salt. Every other atom sits exactly at its slab position.
+- **Salt identification fixed in `spectator.align`:** the salt is now the fragments whose formula never occurs in the slab. Per-element matching had swapped salt H/C with lattice FA atoms. This also corrects the adsorbate set used by `pvpass labels` (A5) and `freeze_beyond_A`.
+- **Dry-run result** (slab CONTCAR sha 972f6436d50775d5; complex CONTCARs; output `data/cache/rebuild_a2_dryrun`, not committed):
+
+  | Complex | Status | Relocated | Salt–slab min (Å), archived → rebuilt | Salt H–Pb/I min (Å), archived → rebuilt |
+  |---|---|---|---|---|
+  | PEAAc | pass | FA, I | 1.79 → 2.02 | 2.82 → 2.81 |
+  | PEACl | pass | FA, I | 2.34 → 2.44 | 2.51 → 2.50 |
+  | PEATFA | needs_settle | FA, I | 1.89 → 2.34 | 2.83 → 2.74 |
+  | PEAI | needs_settle | FA | 2.54 → 2.45 | 2.54 → 2.45 |
+  | PFPACl | needs_settle | FA, I | 2.23 → 2.43 | 2.50 → 2.43 |
+  | TFPACl | needs_settle | FA, I | 2.25 → 2.15 | 2.49 → 2.15 |
+  | TFPAI | needs_settle | FA | 2.43 → 2.13 | 2.43 → 2.13 |
+  | THCl | needs_settle | – | 2.33 → 2.35 | 2.51 → 2.35 |
+  | PFPAI | needs_settle | – | 2.54 → 2.40 | 2.54 → 2.40 |
+
+  - **needs_settle:** a salt H–lattice contact is shorter than in the archived complex. There is no clash; the closest is 2.13 Å. The A3 local settle is meant to remove this.
+  - **Hard checks passed in all nine:** salt–slab ≥ 1.0 Å; the cation N, the anion and every relocated unit stay within 0.23 Å of their local Pb frame; no site exchange outside 8 Å; far-field mismatch to the slab exactly 0.
+  - **The local frame matters:** it differs from the global alignment by 0.12–1.12 Å.
+
 **A3. Local settle.** A short foundation-MACE + D3 FIRE relax, or the A0 model if it passes.
 - Only atoms within 8 Å of the salt move; everything else stays fixed at the relaxed-slab positions.
 - This removes transplant strain without touching the spectators.
@@ -80,6 +107,7 @@
 2. A4: freeze the far field at the converged bare slab (now recommended, R = 10 Å with an 8/10 Å convergence test), or keep the free relax?
 3. Start A2 on the *current* slab geometry now to save calendar time? Not recommended: the slab is still dropping about 10 meV per step, so the spectator states would diverge again.
 4. Revision 5 or a new package number: the desk decides once staged.
+5. **(new, 2026-11-07)** Keep the archived sites (salt on an exchanged A-site and, for five, on a surface I site; the tool's default)? Or place the salt into the slab's own V_FA / V_I? The second is a new adsorption geometry, not a transplant. The tool does not do it.
 
 ## A0 status (2026-10-27): draft package ready, not staged
 
