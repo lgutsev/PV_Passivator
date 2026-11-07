@@ -102,6 +102,13 @@
 - **The frozen reference must be a converged bare slab.** It has itself moved 0.31–0.55 Å since its start. A1 comes first.
 - **Convergence test** on two complexes (one TFPA, one PEA), relaxed with R = 8 and R = 10 Å: accept R when E_ads changes by less than about 0.02 eV.
 - **Code needed:** a `freeze_beyond_A` option in `prepare_label_set.py`, which writes the selective-dynamics flags from each complex's distance to its salt (the same adsorbate identification as `spectator.py`).
+- **Status (2026-11-07): inputs built, not staged.** Config `data/labels_r2scan_v2/config_a4.json`; local output `data/cache/a4_prepared` (24 job groups, 9 reactions). New generator options: per-case `complex_file` (the A3 settled POSCAR), `dipol` (pinned dipole centre) and `freeze_test` (extra jobs at the test radius, kept out of the reactions).
+  - **Starting structures:** the nine A3 settled complexes, on the converged slab (`outputs/slab_FAI_Schot/relax/CONTCAR`). The generator's slab is that CONTCAR to 1e-14 Å.
+  - **Freeze at R = 10 Å:** 300–309 of 519–532 atoms frozen per complex; snap 0.000 Å in every case, so the far field already is the slab. `freeze_max_snap_mean_A` was tightened to 0.05 for this set.
+  - **R = 8 Å test:** `complex_TFPAI_R8` and `complex_PEAI_R8` (331 frozen each). Pass if |E(R8 static) − E(R10 static)| < 0.02 eV in both.
+  - **DIPOL pinned to 0.5019 0.5136 0.4809,** the centre of package 53's finished slab static. The slab's own centre differs only in the in-plane components, which do nothing with IDIPOL = 1. With the pin, that static is reused.
+  - **What still has to run:** 11 complex relax + static pairs (9 at R = 10, 2 at R = 8) and the k-point check (`kcheck_slab_FAI_Schot`, `kcheck_complex_PEAAc`; it had not run yet).
+  - **Reused, inputs identical:** bulk, the slab relax and static (DONE), and all nine references (relax and static). The complex INCARs are identical to revision 5.2; only the POSCARs and selective-dynamics flags change.
 
 **A5. Acceptance check for E_ads (built: `pvpass labels`, commit 61cfd91).**
 - With A4, the far-field atoms match by construction, so the frozen-region check becomes a consistency test of the inputs.

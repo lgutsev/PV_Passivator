@@ -26,6 +26,12 @@ Optional:
                                   (selective dynamics; organic cations whole). The far field then cancels in E_ads.
   "freeze_max_snap_mean_A": 0.15  refuse a complex whose far field is farther than this from the slab on average:
                                   it was not built on this slab (rebuild it first)
+  "dipol": [0.5019, 0.5136, 0.4809]  dipole-correction centre for every slab-type job instead of the slab's own centre
+  "freeze_test": {"radius_A": 8.0, "cases": ["TFPAI", "PEAI"]}
+                                  also write ``complex_<name>_R8`` jobs frozen at the test radius, for the freeze-radius
+                                  convergence test (manifest ``freeze_test``); they are not reactions of the set
+Per case, ``"complex_file": "<POSCAR>"`` reads the complex from that file instead of ``complex_dir/CONTCAR`` (a
+rebuilt/settled starting structure); ``complex_dir`` is still where a "cation+halide" reference takes its cation.
 """
 from __future__ import annotations
 
@@ -152,7 +158,8 @@ def main(argv=None) -> int:
     par = cfg.get("parallel", {})          # NCORE/KPAR per role; performance only, not part of the Hamiltonian
     common = {}                            # settings shared by every slab-type job (filled from the bare slab)
 
-    def job_pair(atoms, name, role, normal_axis, kpoints, prof_relax, prof_static, extra=None, fixed=None):
+    def job_pair(atoms, name, role, normal_axis, kpoints, prof_relax, prof_static, extra=None, fixed=None,
+                 radius=None):
         ov = {**par.get("ref" if role == "reference" else "slab", {}), **(common if normal_axis is not None else {}),
               **(extra or {})}
         # ``slab_relax_overrides`` (e.g. optimizer, EDIFFG) touch only the relax of slab-type jobs: geometry
@@ -167,7 +174,7 @@ def main(argv=None) -> int:
                                   "static_geometry_from": f"{name}/relax/CONTCAR", "role": role,
                                   "kpoints": kpoints, "natoms": len(atoms)}
         if fixed:
-            manifest["jobs"][name]["freeze_beyond_A"] = cfg["freeze_beyond_A"]
+            manifest["jobs"][name]["freeze_beyond_A"] = radius if radius is not None else cfg["freeze_beyond_A"]
             manifest["jobs"][name]["n_frozen"] = len(fixed)
         statics[name] = s
         return s
@@ -183,8 +190,8 @@ def main(argv=None) -> int:
                                 "ENCUT": enc,
                                 "purpose": "confirm the lattice; if it moves by > 0.5 %, regenerate the set"}
 
-    def load_slab(d: Path, label: str) -> Atoms:
-        src = d / "CONTCAR"
+    def load_slab(d: Path, label: str, src: Path | None = None) -> Atoms:
+        src = src or d / "CONTCAR"
         at = read(src, format="vasp")
         m, rep = to_common_cell(at, ax, cell, cfg.get("max_strain", 0.03), cfg.get("max_shear_deg", 7.0))
         manifest["structures"][label] = {"source": str(src), "sha256_16": sha(src), **rep,
@@ -201,26 +208,46 @@ def main(argv=None) -> int:
     slab_name = cfg.get("slab_name", "slab")
     slab = load_slab(Path(cfg["slab_dir"]), slab_name)
     kp = cfg.get("slab_kpoints") or kpoints_for(slab, ax)
+    if cfg.get("dipol"):
+        # pin the dipole-correction centre (e.g. to a finished slab static of the same set, so it can be reused)
+        common["DIPOL"] = " ".join(f"{float(x):.4f}" for x in cfg["dipol"])
     s0 = job_pair(slab, f"slab_{slab_name}", "bare_slab", ax, kp, "relax", "static")
     # one dipole-correction centre for slab, complexes and k-point checks (all share the cell), taken from the slab
     if "DIPOL" in s0.incar:
         common["DIPOL"] = s0.incar["DIPOL"]
 
+    def freeze(cx0: Atoms, name: str, radius: float, label: str):
+        # far field frozen at the set's (converged) bare slab: identical by construction, cancels in E_ads
+        from pvpassivator.spectator import freeze_far_field
+        cx, frozen, frep = freeze_far_field(slab, cx0, radius)
+        lim = cfg.get("freeze_max_snap_mean_A", 0.15)   # a transplanted complex snaps ~0; 53 TFPA ~0.06, PEACl 0.43
+        if frep["snap_mean_A"] > lim:
+            raise ValueError(f"{label}: its far field is {frep['snap_mean_A']} A from the slab on average "
+                             f"(> {lim}); it was not built on this slab, so rebuild it before freezing")
+        if min_distance(cx) < 0.75:
+            raise ValueError(f"{label}: atoms closer than 0.75 A after snapping the far field")
+        return cx, frozen, frep
+
+    ft = cfg.get("freeze_test")
+    if ft:
+        if not cfg.get("freeze_beyond_A"):
+            raise ValueError("freeze_test needs freeze_beyond_A (the set's own radius)")
+        unknown = set(ft["cases"]) - {c["name"] for c in cfg["cases"]}
+        if unknown:
+            raise ValueError(f"freeze_test cases not in the set: {sorted(unknown)}")
+        manifest["freeze_test"] = {
+            "radius_A": ft["radius_A"], "set_radius_A": cfg["freeze_beyond_A"], "cases": {},
+            "test": "dE(X) = E(complex_X_R<r>/static) - E(complex_X/static) (same slab and reference, so it is the "
+                    "change in E_ads); accept the set radius if |dE| < 0.02 eV in every test case"}
+
     for case in cfg["cases"]:
         name = case["name"]
-        cx = load_slab(Path(case["complex_dir"]), f"complex_{name}")
-        frozen = None
+        cfile = Path(case["complex_file"]) if case.get("complex_file") else None
+        cx0 = load_slab(Path(case["complex_dir"]), f"complex_{name}", cfile)
+        cx, frozen = cx0, None
         if cfg.get("freeze_beyond_A"):
-            # far field frozen at the set's (converged) bare slab: identical by construction, cancels in E_ads
-            from pvpassivator.spectator import freeze_far_field
-            cx, frozen, frep = freeze_far_field(slab, cx, float(cfg["freeze_beyond_A"]))
+            cx, frozen, frep = freeze(cx0, name, float(cfg["freeze_beyond_A"]), f"complex_{name}")
             manifest["structures"][f"complex_{name}"]["freeze"] = frep
-            lim = cfg.get("freeze_max_snap_mean_A", 0.15)   # a transplanted complex snaps ~0; 53 TFPA ~0.06, PEACl 0.43
-            if frep["snap_mean_A"] > lim:
-                raise ValueError(f"complex_{name}: its far field is {frep['snap_mean_A']} A from the slab on average "
-                                 f"(> {lim}); it was not built on this slab, so rebuild it before freezing")
-            if min_distance(cx) < 0.75:
-                raise ValueError(f"complex_{name}: atoms closer than 0.75 A after snapping the far field")
         rs = case["ref"]
         if rs["kind"] == "file":
             ref = read(rs["path"], format="vasp")
@@ -240,6 +267,12 @@ def main(argv=None) -> int:
                       label=name)
         rx.assert_balanced()
         job_pair(cx, f"complex_{name}", "complex", ax, kp, "relax", "static", fixed=frozen)
+        if ft and name in ft["cases"]:
+            r = float(ft["radius_A"])
+            tag = f"complex_{name}_R{r:g}"
+            cxt, frozen_t, frep_t = freeze(cx0, name, r, tag)
+            job_pair(cxt, tag, "complex", ax, kp, "relax", "static", fixed=frozen_t, radius=r)
+            manifest["freeze_test"]["cases"][name] = {"job": tag, "compare_with": f"complex_{name}", "freeze": frep_t}
         job_pair(ref, f"ref_{name}", "reference", None, [1, 1, 1], "molecule_relax", "molecule_static")
         manifest["structures"][f"ref_{name}"] = {**ref_src, "formula": formula_key(comp(ref)),
                                                  "min_interatomic_A": min_distance(ref)}

@@ -94,3 +94,37 @@ def test_generator_refuses_a_complex_not_built_on_this_slab(tmp_path):
     cfg = _label_set(tmp_path, cx_with(T.slab(), far_scramble=0.9))   # far field 0.9 A off, atom by atom
     with pytest.raises(ValueError, match="not built on this slab"):
         P.main(["--config", str(cfg), "--out", str(tmp_path / "pkg")])
+
+
+def test_generator_complex_file_dipol_pin_and_freeze_radius_test(tmp_path):
+    """A4 inputs: the complex from a settled POSCAR, a pinned DIPOL, and an extra job frozen at the test radius."""
+    cfg_path = _label_set(tmp_path, cx_with(T.slab(), far_shift=0.9))           # complex_dir CONTCAR: unusable
+    write(tmp_path / "settled.vasp", cx_with(T.slab()), format="vasp")          # the settled one: built on the slab
+    cfg = json.loads(cfg_path.read_text())
+    cfg["cases"][0]["complex_file"] = str(tmp_path / "settled.vasp")
+    cfg["dipol"] = [0.5, 0.25, 0.75]
+    cfg["freeze_test"] = {"radius_A": 8.0, "cases": ["X"]}
+    cfg_path.write_text(json.dumps(cfg))
+    assert P.main(["--config", str(cfg_path), "--out", str(tmp_path / "pkg")]) == 0
+    m = json.loads((tmp_path / "pkg" / "manifest.json").read_text())
+    assert m["structures"]["complex_X"]["source"] == str(tmp_path / "settled.vasp")
+    assert m["structures"]["complex_X"]["freeze"]["snap_max_A"] < 1e-3
+    for job in ("slab_S", "complex_X", "complex_X_R8"):
+        for kind in ("relax", "static"):
+            assert "DIPOL = 0.5000 0.2500 0.7500" in (tmp_path / "pkg" / job / kind / "INCAR").read_text()
+    ft = m["freeze_test"]
+    assert ft["radius_A"] == 8.0 and ft["cases"]["X"]["job"] == "complex_X_R8"
+    assert m["jobs"]["complex_X_R8"]["freeze_beyond_A"] == 8.0 and m["jobs"]["complex_X"]["freeze_beyond_A"] == 10.0
+    assert m["jobs"]["complex_X_R8"]["n_frozen"] > m["jobs"]["complex_X"]["n_frozen"]
+    assert [r["name"] for r in m["reactions"]] == ["X"]                          # the test job is not a label
+    assert (tmp_path / "pkg" / "complex_X_R8" / "relax" / "INCAR").read_text() == \
+        (tmp_path / "pkg" / "complex_X" / "relax" / "INCAR").read_text()
+
+
+def test_freeze_test_requires_cases_in_the_set(tmp_path):
+    cfg_path = _label_set(tmp_path, cx_with(T.slab()))
+    cfg = json.loads(cfg_path.read_text())
+    cfg["freeze_test"] = {"radius_A": 8.0, "cases": ["Y"]}
+    cfg_path.write_text(json.dumps(cfg))
+    with pytest.raises(ValueError, match="not in the set"):
+        P.main(["--config", str(cfg_path), "--out", str(tmp_path / "pkg")])
