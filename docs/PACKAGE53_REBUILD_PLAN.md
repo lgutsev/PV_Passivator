@@ -89,7 +89,7 @@
 - **The settle did its job.** The shortest salt H–Pb/I contact rose from 2.13 to 2.40 Å, and every salt–slab contact is ≥ 1.92 Å. Moves are small: 0.03–0.06 Å on average, 0.4 Å at most.
 - **review** (PEACl, THCl, TFPACl): a salt H–lattice contact is still 0.06–0.09 Å shorter than archived, beyond the 0.05 Å tolerance. All are ≥ 2.40 Å, normal N–H···I distances.
 - **PEATFA fail is marginal.** The TFA anchor O shifted 0.305 Å against its archived Pb frame (limit 0.30). It keeps all 4 of its Pb neighbours, so it has not left its site.
-- **For the owner:** accept the review cases and PEATFA as they are, or rerun them with a tighter radius or fmax. The thresholds were not loosened after the fact.
+- **Owner decision (2026-11-07): all nine accepted as settled,** including the three review cases and PEATFA. They are the A4 starting structures. The thresholds were not loosened; the acceptance is recorded here instead.
 
 **A4. DFT relax of the rebuilt complexes: freeze the far field (revised 2026-10-31).**
 - Each rebuilt complex relaxes with selective dynamics. Atoms more than R from the salt are frozen at the converged bare slab's positions; everything within R relaxes. Start with R = 10 Å.
