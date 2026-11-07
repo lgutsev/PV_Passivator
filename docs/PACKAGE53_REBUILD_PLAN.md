@@ -68,6 +68,29 @@
 - Only atoms within 8 Å of the salt move; everything else stays fixed at the relaxed-slab positions.
 - This removes transplant strain without touching the spectators.
 
+**A3 status (2026-11-07): tool built, run on the nine rebuilt complexes.** `local_settle.py` + `tests/test_local_settle.py`.
+- **Setup:** `maceh` env, RTX 5070, foundation MACE-matpes-r2scan + D3(BJ, r2SCAN) [torch-dftd], FIRE.
+- **What moves:** atoms within 8 Å of the salt, plus the relocated units; molecules move whole. That is 170–192 mobile atoms; the rest are fixed and verified unchanged.
+- **Stop:** fmax ≤ 0.1 eV/Å or 150 steps. Every case converged in 20–53 steps, 1–2.5 min each; the run took 14 min.
+- **Output:** `data/cache/settle_a3`, not committed. Its input is the A2 output above.
+
+| Complex | Status | Steps | fmax (eV/Å), start → end | Mean / max move (Å) | Salt H–Pb/I min (Å), archived → settled | Largest site shift (Å) |
+|---|---|---:|---|---|---|---:|
+| PEAAc | pass | 51 | 0.73 → 0.10 | 0.05 / 0.30 | 2.82 → 2.78 | 0.21 |
+| PEAI | pass | 27 | 0.84 → 0.07 | 0.05 / 0.30 | 2.54 → 2.50 | 0.21 |
+| PFPACl | pass | 27 | 0.70 → 0.10 | 0.05 / 0.28 | 2.50 → 2.53 | 0.21 |
+| PFPAI | pass | 20 | 0.96 → 0.09 | 0.03 / 0.25 | 2.54 → 2.55 | 0.19 |
+| TFPAI | pass | 27 | 1.02 → 0.09 | 0.05 / 0.25 | 2.43 → 2.40 | 0.16 |
+| PEACl | review | 27 | 0.89 → 0.08 | 0.05 / 0.29 | 2.51 → 2.45 | 0.18 |
+| THCl | review | 38 | 1.36 → 0.09 | 0.05 / 0.40 | 2.51 → 2.44 | 0.22 |
+| TFPACl | review | 48 | 0.98 → 0.10 | 0.05 / 0.25 | 2.49 → 2.40 | 0.20 |
+| PEATFA | fail | 53 | 0.89 → 0.10 | 0.06 / 0.22 | 2.83 → 2.66 | 0.305 (TFA O) |
+
+- **The settle did its job.** The shortest salt H–Pb/I contact rose from 2.13 to 2.40 Å, and every salt–slab contact is ≥ 1.92 Å. Moves are small: 0.03–0.06 Å on average, 0.4 Å at most.
+- **review** (PEACl, THCl, TFPACl): a salt H–lattice contact is still 0.06–0.09 Å shorter than archived, beyond the 0.05 Å tolerance. All are ≥ 2.40 Å, normal N–H···I distances.
+- **PEATFA fail is marginal.** The TFA anchor O shifted 0.305 Å against its archived Pb frame (limit 0.30). It keeps all 4 of its Pb neighbours, so it has not left its site.
+- **For the owner:** accept the review cases and PEATFA as they are, or rerun them with a tighter radius or fmax. The thresholds were not loosened after the fact.
+
 **A4. DFT relax of the rebuilt complexes: freeze the far field (revised 2026-10-31).**
 - Each rebuilt complex relaxes with selective dynamics. Atoms more than R from the salt are frozen at the converged bare slab's positions; everything within R relaxes. Start with R = 10 Å.
 - **Why the free relax is no longer recommended:** the spectator check (61cfd91) on the latest CONTCARs shows that even TFPACl and TFPAI, which started consistent with the slab (0.055 and 0.047 Å), drifted to 0.36 and 0.28 Å.

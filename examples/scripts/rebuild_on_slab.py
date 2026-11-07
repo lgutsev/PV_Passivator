@@ -143,6 +143,46 @@ def match_units(slab: Atoms, cx: Atoms, t: np.ndarray, ads: np.ndarray) -> list[
     return units
 
 
+def local_checks(cx: Atoms, out: Atoms, ads, moved, reloc_anchors, h_tol: float = H_TOL_A) -> dict:
+    """Contact and site checks of ``out`` against the archived complex ``cx`` (same atom order). ``moved`` = salt +
+    relocated units; ``reloc_anchors`` = one atom per relocated unit (its Pb/I, or the FA's C). Used after the
+    rebuild and again after the local settle (``local_settle.py``)."""
+    ads, moved = np.asarray(ads, int), np.asarray(moved, int)
+    cs = np.array(cx.get_chemical_symbols())
+    slab_idx = np.setdiff1d(np.arange(len(cx)), ads)
+    rest = np.setdiff1d(np.arange(len(cx)), moved)
+    lat_cx = rest[np.isin(cs[rest], LATTICE)]
+    salt_H = ads[cs[ads] == "H"]
+    hl_old, hl_new = _min_pair(cx, salt_H, lat_cx), _min_pair(out, salt_H, lat_cx)
+    ss_old, ss_new = _min_pair(cx, moved, rest), _min_pair(out, moved, rest)
+
+    # sites: each anchor keeps its offset from the Pb that were its nearest in the archived complex (by identity)
+    cat, anions = salt_fragments(cx, ads)
+    pb_cx = slab_idx[cs[slab_idx] == "Pb"]
+    anchors = {"cation_N": next(i for i in cat if cs[i] == "N")}
+    for n, g in enumerate(anions):
+        g = np.array(g)
+        anchors[f"anion{n}_{''.join(sorted(set(cs[g])))}"] = int(g[np.argmin(_dmat(cx.positions[g], cx.positions[pb_cx],
+                                                                                    cx.cell).min(1))])
+    for k in reloc_anchors:
+        anchors[f"relocated_{cs[k]}{k}"] = int(k)
+    sites = {}
+    for name, k in anchors.items():
+        nb = _nearest_pb(cx, k, pb_cx)
+        shared = len(set(nb) & set(_nearest_pb(out, k, pb_cx)))
+        shift = float(np.linalg.norm(_offset(out, k, nb) - _offset(cx, k, nb)))
+        sites[name] = {"atom": int(k), "element": str(cs[k]), "shared_Pb": shared, "shift_A": round(shift, 3),
+                       "pass": bool(shift <= SITE_SHIFT_MAX_A)}
+    return {
+        "min_distance_A": {"value": round(ss_new, 3), "limit": MIN_DIST_A, "pass": bool(ss_new >= MIN_DIST_A)},
+        "salt_H_lattice_A": {"archived": round(hl_old, 3), "rebuilt": round(hl_new, 3), "tol": h_tol,
+                             "pass": bool(hl_new >= hl_old - h_tol)},
+        "salt_slab_A": {"archived": round(ss_old, 3), "rebuilt": round(ss_new, 3), "tol": h_tol,
+                        "pass": bool(ss_new >= ss_old - h_tol or ss_new >= NEW_CONTACT_OK_A)},
+        "sites": {"pass": all(v["pass"] for v in sites.values()), **sites},
+    }
+
+
 def rebuild(slab: Atoms, cx: Atoms, local_radius: float = LOCAL_RADIUS_A, h_tol: float = H_TOL_A) -> tuple[Atoms, dict]:
     """Rebuilt complex (archived atom order, slab cell) and its acceptance report (see module docstring)."""
     al = align(slab, cx)
@@ -185,33 +225,9 @@ def rebuild(slab: Atoms, cx: Atoms, local_radius: float = LOCAL_RADIUS_A, h_tol:
     out.positions[moved] = cx.positions[moved] + t_loc
     out.wrap()
 
-    # contacts, archived vs rebuilt (same indices: atom order is kept)
-    slab_idx = np.setdiff1d(np.arange(len(cx)), ads)
-    rest = np.setdiff1d(np.arange(len(cx)), moved)
-    lat_cx = rest[np.isin(cs[rest], LATTICE)]
-    salt_H = ads[cs[ads] == "H"]
-    hl_old, hl_new = _min_pair(cx, salt_H, lat_cx), _min_pair(out, salt_H, lat_cx)
-    ss_old, ss_new = _min_pair(cx, moved, rest), _min_pair(out, moved, rest)
-    dmin = ss_new
-
-    # sites: anchor keeps its Pb neighbours (by identity) and its offset from them
-    cat, anions = salt_fragments(cx, ads)
-    pb_cx = slab_idx[cs[slab_idx] == "Pb"]
-    anchors = {"cation_N": next(i for i in cat if cs[i] == "N")}
-    for n, g in enumerate(anions):
-        g = np.array(g)
-        anchors[f"anion{n}_{''.join(sorted(set(cs[g])))}"] = int(g[np.argmin(_dmat(cx.positions[g], cx.positions[pb_cx],
-                                                                                    cx.cell).min(1))])
-    for u in reloc_units:
-        k = int(u["cx"][0]) if len(u["cx"]) == 1 else int(next(i for i in u["cx"] if cs[i] == "C"))
-        anchors[f"relocated_{u['formula']}_{k}"] = k
-    sites = {}
-    for name, k in anchors.items():
-        nb = _nearest_pb(cx, k, pb_cx)
-        shared = len(set(nb) & set(_nearest_pb(out, k, pb_cx)))
-        shift = float(np.linalg.norm(_offset(out, k, nb) - _offset(cx, k, nb)))
-        sites[name] = {"atom": int(k), "element": str(cs[k]), "shared_Pb": shared, "shift_A": round(shift, 3),
-                       "pass": bool(shift <= SITE_SHIFT_MAX_A)}
+    reloc_anchors = [int(u["cx"][0]) if len(u["cx"]) == 1 else int(next(i for i in u["cx"] if cs[i] == "C"))
+                     for u in reloc_units]
+    local = local_checks(cx, out, ads, moved, reloc_anchors, h_tol)
 
     stay = np.array([u["disp"] for u in units if not u["jump"]])
     unit_rep = lambda u, key: {key: int(u[key][0]) if key == "slab" else [int(i) for i in u[key]],
@@ -219,12 +235,7 @@ def rebuild(slab: Atoms, cx: Atoms, local_radius: float = LOCAL_RADIUS_A, h_tol:
                                "d_salt_slab_site_A": round(u["d_salt_slab_site"], 2)}
     spec = spectator_mismatch(slab, out)
     checks = {
-        "min_distance_A": {"value": round(dmin, 3), "limit": MIN_DIST_A, "pass": bool(dmin >= MIN_DIST_A)},
-        "salt_H_lattice_A": {"archived": round(hl_old, 3), "rebuilt": round(hl_new, 3), "tol": h_tol,
-                             "pass": bool(hl_new >= hl_old - h_tol)},
-        "salt_slab_A": {"archived": round(ss_old, 3), "rebuilt": round(ss_new, 3), "tol": h_tol,
-                        "pass": bool(ss_new >= ss_old - h_tol or ss_new >= NEW_CONTACT_OK_A)},
-        "sites": {"pass": all(s["pass"] for s in sites.values()), **sites},
+        **local,
         "lattice_sites": {"n_far_jumps": len(far_units), "far_jumps": [unit_rep(u, "slab") for u in far_units],
                           "relocated": [unit_rep(u, "cx") for u in reloc_units],
                           "on_site_mean_A": round(float(stay.mean()), 3), "on_site_max_A": round(float(stay.max()), 3),
@@ -235,6 +246,8 @@ def rebuild(slab: Atoms, cx: Atoms, local_radius: float = LOCAL_RADIUS_A, h_tol:
     report = {
         "n_atoms": len(out), "salt": {e: int((cs[ads] == e).sum()) for e in sorted(set(cs[ads]))},
         "salt_indices": [int(i) for i in ads],
+        "moved_indices": [int(i) for i in moved],
+        "relocated_anchors": reloc_anchors,
         "translation_global_A": [round(float(x), 3) for x in t],
         "translation_local_A": [round(float(x), 3) for x in t_loc],
         "local_minus_global_A": round(float(np.linalg.norm(_mic(t_loc - t, slab.cell))), 3),
