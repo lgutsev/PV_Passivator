@@ -17,6 +17,22 @@ Tags: **[V]** verified on the publication page, **[R]** read from our files, **[
 **Recommendation: GO for a small DFT validation tranche (approval needed). NO-GO for production MD.** The
 reasons are in §9.
 
+**Update 2026-11-08: the owner approved the D0–D2 tranche ("ok approve"). It is staged, not submitted.**
+- Package `LONI_staging/chiral_d0_vasp_mba2pbi4`, hand-off `LONI_staging/HANDOFF_TO_DISPATCH_chiral_d0.md`, no
+  package number yet.
+- Generator: `examples/scripts/prepare_chirality_d0.py` (tests: `tests/test_chirality_d0.py`).
+- Starts:
+  - R and rac with only the riding H relaxed, using foundation MACE + D3(BJ). fmax went from 7.4 / 9.0 to
+    ≤ 0.05 eV/Å on H.
+  - Heavy atoms are bit-for-bit at the X-ray positions, so every descriptor is unchanged. X–H bonds are
+    1.03–1.09 Å.
+  - The exact mirror of R is included.
+- 18 runs, in order: smoke 1, check 7, soc 2, relax 4, static 4. `ISYM = 0` throughout.
+- Cost: the staged package totals about 80–360 node-h. That is above the 30–120 node-h approved, because of
+  `ISYM = 0` and four relaxations. Only smoke + check + soc (about 17–55 node-h) is requested now. The relax and
+  static arrays wait for measured timings and a re-confirmation by the owner if the projection exceeds 120 node-h.
+- Checks: local mock run 18/18 DONE, `bash -n` clean, no CR bytes.
+
 ## 1. Hypothesis under test
 
 > Spacer rigidity and persistent asymmetric organic–inorganic hydrogen bonding control how much handedness is

@@ -1,6 +1,6 @@
 {
  "schema": "pvpass_chirality_plan/1",
- "status": "PROPOSED ONLY. Not staged, not submitted, no package number. Requires owner approval and a desk package number before any LONI work.",
+ "status": "D0-D2 approved by the owner 2026-11-08 and STAGED (not submitted) as LONI_staging/chiral_d0_vasp_mba2pbi4 via examples/scripts/prepare_chirality_d0.py; no package number yet. Everything from D3 on remains PROPOSED ONLY.",
  "date": "2026-11-08",
  "electronic_structure_profile": {
   "label_target": "r2SCAN+D3(BJ), the project label profile (same INCAR family as data/prerelax_a0/dataset_v2: METAGGA=R2SCAN, IVDW=12, VDW_S8=0.7898, VDW_A1=0.4948, VDW_A2=5.7308, ENCUT=520, PREC=Accurate, LASPH=.TRUE., ISMEAR=0, SIGMA=0.05)",
