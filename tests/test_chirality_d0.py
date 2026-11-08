@@ -128,3 +128,22 @@ def test_package_json_has_per_file_sha256(starts, tmp_path):
     assert set(files) == on_disk and len(files) > 90
     for rel, h in files.items():
         assert hashlib.sha256((out / rel).read_bytes()).hexdigest() == h
+
+
+def test_diag_mode_lreal_encut_statics(starts, tmp_path):
+    out = tmp_path / "pkg_diag"
+    P.stage(dict(CFG), starts, out, mode="diag")
+    assert (out / "lists" / "diag.txt").read_text().split() == ["R_e520_lrealF", "R_e600_lrealF", "R_e700_lrealF", "R_e700"]
+    assert sorted(f.name for f in out.glob("*.slurm")) == ["run_diag.slurm"]
+    got = {}
+    for job in ("R_e520_lrealF", "R_e600_lrealF", "R_e700_lrealF", "R_e700"):
+        t = _incar(out / "inputs" / job / "static" / "INCAR")
+        got[job] = (t["ENCUT"], t["LREAL"], t["ISYM"], t["IBRION"])
+        k = (out / "inputs" / job / "static" / "KPOINTS").read_text().splitlines()[3]
+        assert k == "3 3 1"                                   # same mesh as package 105 R_kref
+    assert got == {"R_e520_lrealF": ("520", ".FALSE.", "0", "-1"), "R_e600_lrealF": ("600", ".FALSE.", "0", "-1"),
+                   "R_e700_lrealF": ("700", ".FALSE.", "0", "-1"), "R_e700": ("700", "Auto", "0", "-1")}
+    # identical start geometry to the D0 package's R_kref
+    d0 = tmp_path / "pkg_d0"
+    P.stage(dict(CFG), starts, d0)
+    assert (out / "inputs/R_e700/static/POSCAR").read_bytes() == (d0 / "inputs/R_kref/static/POSCAR").read_bytes()

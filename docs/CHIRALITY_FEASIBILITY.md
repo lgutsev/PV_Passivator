@@ -69,6 +69,11 @@ reasons are in §9.
     lowest ENCUT whose forces are within 5 meV/Å of the next step up. Either way the relax inputs are regenerated.
     The settings then differ from the package 53 label profile, which matters if these frames are later mixed
     into the same training set.
+  - **Staged 2026-11-08** (owner: "Yes, stage it"), not submitted: `LONI_staging/chiral_d0e_vasp_mba2pbi4_lreal`
+    with `HANDOFF_TO_DISPATCH_chiral_d0e.md`, no package number. Generator mode
+    `prepare_chirality_d0.py stage --mode diag`.
+    - Four R statics on 105's exact start and mesh: `LREAL = .FALSE.` at 520 / 600 / 700, and `LREAL = Auto` at 700.
+    - Checks: mock run 4/4 DONE, `bash -n` clean.
 
 ## 1. Hypothesis under test
 

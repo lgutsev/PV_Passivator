@@ -128,6 +128,20 @@ def build_jobs(starts: dict, kspacing: float, encut: int, encut_factor: float):
     return J
 
 
+def build_diag_jobs(starts: dict, kspacing: float):
+    """D0e LREAL/ENCUT diagnostic (owner-approved 2026-11-08 after package 105 failed the ENCUT check): four R statics
+    on the same start and mesh as 105's R_kref (520, LREAL Auto) and R_kref_e600 (600, LREAL Auto), which serve as
+    the baselines. LREAL=.FALSE. at 520/600/700 separates projection error from basis error; 700 with LREAL=Auto
+    tests whether Auto converges at a higher cutoff."""
+    from prepare_bulk_refs import kmesh
+    kR = kmesh(starts["R"], kspacing)
+    st = {"IBRION": -1, "NSW": 0}
+    return [("diag", "R_e520_lrealF", "static", "static", "R", {**st, "ENCUT": 520, "LREAL": ".FALSE."}, kR, ""),
+            ("diag", "R_e600_lrealF", "static", "static", "R", {**st, "ENCUT": 600, "LREAL": ".FALSE."}, kR, ""),
+            ("diag", "R_e700_lrealF", "static", "static", "R", {**st, "ENCUT": 700, "LREAL": ".FALSE."}, kR, ""),
+            ("diag", "R_e700", "static", "static", "R", {**st, "ENCUT": 700}, kR, "")]
+
+
 def walltime_s(t: str) -> int:
     """Slurm walltime 'D-HH:MM:SS', 'HH:MM:SS' or 'MM:SS' -> seconds."""
     days, _, hms = t.rpartition("-")
@@ -149,7 +163,7 @@ def signal_margin(st: dict) -> int:
     return s
 
 
-def stage(cfg: dict, starts_dir: Path, out: Path, overwrite: bool = False) -> dict:
+def stage(cfg: dict, starts_dir: Path, out: Path, overwrite: bool = False, mode: str = "d0") -> dict:
     from prepare_bulk_refs import incar_text, ordered, potcar_defs
     from stage_label_set import LIB, SLURM, lf
     if out.exists() and any(out.iterdir()) and not overwrite:
@@ -164,7 +178,8 @@ def stage(cfg: dict, starts_dir: Path, out: Path, overwrite: bool = False) -> di
         raise SystemExit("mirror still has R centres")
     defs = potcar_defs(Path(cfg.get("potcar_defs", ROOT / "src" / "pvpassivator" / "data" / "POTCAR_DEFS.txt")))
     cl = cfg["cluster"]
-    jobs = build_jobs(starts, cfg["kspacing"], cfg["encut"], cfg["encut_factor"])
+    jobs = (build_jobs(starts, cfg["kspacing"], cfg["encut"], cfg["encut_factor"]) if mode == "d0"
+            else build_diag_jobs(starts, cfg["kspacing"]))
     lists = {}
     manifest = {"title": cfg["title"], "physics": PHYSICS, "soc_tags": SOC_TAGS, "jobs": [], "starts": {},
                 "settle": settle_rep}
@@ -203,9 +218,11 @@ def stage(cfg: dict, starts_dir: Path, out: Path, overwrite: bool = False) -> di
         "relax": ("D1 relaxations (fixed and free cell)", row.format(L="relax") + 'run_step "$job" relax relax', True),
         "static": ("D1 production statics on relaxed geometries",
                    row.format(L="static") + 'run_step "$job" static static "$geo"', True),
+        "diag": ("D0e LREAL/ENCUT diagnostic statics on R", row.format(L="diag") + 'run_step "$job" static static', True),
     }
+    bodies = {k: v for k, v in bodies.items() if k in lists}
     for arr, (purpose, body, is_array) in bodies.items():
-        st = cl["stages"][arr]
+        st = cl["stages"].get(arr, cl["stages"]["check"])
         n = len(lists[arr])
         array = f"#SBATCH --array=0-{n - 1}%{min(n, st.get('max_parallel', n))}\n" if is_array else ""
         lf(out / f"run_{arr}.slurm", SLURM.replace("stage_label_set.py", "prepare_chirality_d0.py").format(
@@ -221,9 +238,10 @@ def stage(cfg: dict, starts_dir: Path, out: Path, overwrite: bool = False) -> di
           "## Commands, in order (from this directory)", ""]
     notes = {"smoke": "check outputs/smoke/static/timing.txt", "check": "report LOOP+ timings and energies before going on",
              "soc": "needs vasp_ncl in the module; independent of check", "relax": "only after check is reviewed; resubmit "
-             "tasks that hit the walltime (continues from CONTCAR)", "static": "after the relaxes are DONE"}
+             "tasks that hit the walltime (continues from CONTCAR)", "static": "after the relaxes are DONE",
+             "diag": "compare with package 105 R_kref / R_kref_e600 (same start and mesh)"}
     for arr in bodies:
-        st = cl["stages"][arr]
+        st = cl["stages"].get(arr, cl["stages"]["check"])
         n = len(lists[arr])
         rd.append(f"1. `sbatch run_{arr}.slurm` ({n} job{'s' if n != 1 else ''}, {st['nodes']} node(s) each, <= {st['time']}; "
                   f"est. {cost.get(arr, '?')} node-h). {notes[arr]}")
@@ -256,13 +274,14 @@ def main(argv=None) -> int:
     s2.add_argument("--starts", type=Path, default=ROOT / "data" / "cache" / "chirality_d0_start")
     s2.add_argument("--out", type=Path, required=True)
     s2.add_argument("--overwrite", action="store_true")
+    s2.add_argument("--mode", choices=("d0", "diag"), default="d0", help="diag: the D0e LREAL/ENCUT statics only")
     a = ap.parse_args(argv)
     if a.cmd == "settle-h":
         rep = settle_h(a.out, device=a.device)
         return 0 if all(rep[k]["status"] == "pass" for k in CIFS) else 1
     cfg = json.loads(a.config.read_text(encoding="utf-8"))
     cfg["_sha16"] = hashlib.sha256(a.config.read_bytes()).hexdigest()[:16]
-    stage(cfg, a.starts, a.out, a.overwrite)
+    stage(cfg, a.starts, a.out, a.overwrite, a.mode)
     return 0
 
 
