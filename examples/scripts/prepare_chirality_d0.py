@@ -128,6 +128,27 @@ def build_jobs(starts: dict, kspacing: float, encut: int, encut_factor: float):
     return J
 
 
+def walltime_s(t: str) -> int:
+    """Slurm walltime 'D-HH:MM:SS', 'HH:MM:SS' or 'MM:SS' -> seconds."""
+    days, _, hms = t.rpartition("-")
+    parts = [int(x) for x in hms.split(":")]
+    while len(parts) < 3:
+        parts.insert(0, 0)
+    return int(days or 0) * 86400 + parts[0] * 3600 + parts[1] * 60 + parts[2]
+
+
+def signal_margin(st: dict) -> int:
+    """USR1 lead time before the walltime: explicit ``signal_margin_s`` or min(1800, wall/4).
+
+    Desk fix 2026-11-08 (package 105): 1800 s on a 30-min smoke job fires USR1 at start-up, before run_vasp has set
+    its trap, and the default action kills the batch shell. The margin must stay well below the walltime."""
+    wall = walltime_s(st["time"])
+    s = int(st.get("signal_margin_s", min(1800, wall // 4)))
+    if not 0 < s <= wall // 4:
+        raise SystemExit(f"signal margin {s} s must be in (0, walltime/4 = {wall // 4} s] for time {st['time']}")
+    return s
+
+
 def stage(cfg: dict, starts_dir: Path, out: Path, overwrite: bool = False) -> dict:
     from prepare_bulk_refs import incar_text, ordered, potcar_defs
     from stage_label_set import LIB, SLURM, lf
@@ -190,7 +211,7 @@ def stage(cfg: dict, starts_dir: Path, out: Path, overwrite: bool = False) -> di
         lf(out / f"run_{arr}.slurm", SLURM.replace("stage_label_set.py", "prepare_chirality_d0.py").format(
             name=f"chiral-{arr}", account=cl["account"], partition=cl["partition"], array=array, nodes=st["nodes"],
             ntasks=cl["ntasks_per_node"], time=st["time"], output="%x_%A_%a.out" if is_array else "%x_%j.out",
-            package=pkg, purpose=purpose, body=body, signal_s=int(st.get("signal_margin_s", 1800))))
+            package=pkg, purpose=purpose, body=body, signal_s=signal_margin(st)))
     lf(out / "export.list", "outputs/*\nlogs/*\n")
     lf(out / "logs" / ".keep", "")
     lf(out / "manifest.json", json.dumps(manifest, indent=1) + "\n")
@@ -213,9 +234,13 @@ def stage(cfg: dict, starts_dir: Path, out: Path, overwrite: bool = False) -> di
                   f"{j['ENCUT']} | {j['exe']} |")
     rd += ["", "Exports: `export.list` (outputs/*, logs/*)."]
     lf(out / "README.md", "\n".join(rd) + "\n")
+    # per-file sha256 (desk request 2026-11-08) so a re-stage can be verified byte for byte; package.json itself excluded
+    files = {f.relative_to(out).as_posix(): hashlib.sha256(f.read_bytes()).hexdigest()
+             for f in sorted(out.rglob("*")) if f.is_file() and f.name != "package.json"}
     lf(out / "package.json", json.dumps({"package": pkg, "generator": "PV_Passivator prepare_chirality_d0.py",
                                          "config_sha256_16": cfg.get("_sha16"), "arrays": {k: len(v) for k, v in lists.items()},
-                                         "cost_estimate_node_h": cost, "submitted": False}, indent=1) + "\n")
+                                         "cost_estimate_node_h": cost, "submitted": False,
+                                         "files_sha256": files}, indent=1) + "\n")
     print(f"staged {pkg}: " + ", ".join(f"{k} {len(v)}" for k, v in lists.items()) + f" -> {out}")
     return manifest
 

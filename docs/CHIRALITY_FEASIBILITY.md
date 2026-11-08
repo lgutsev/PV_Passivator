@@ -32,6 +32,13 @@ reasons are in §9.
   `ISYM = 0` and four relaxations. Only smoke + check + soc (about 17–55 node-h) is requested now. The relax and
   static arrays wait for measured timings and a re-confirmation by the owner if the projection exceeds 120 node-h.
 - Checks: local mock run 18/18 DONE, `bash -n` clean, no CR bytes.
+- **Desk intake (2026-11-08):** taken in as **package 105** (`105_vasp_pvpass_mba2pbi4_chirality_d0`, desk commit
+  `2e1d165`), renamed only.
+  - The desk changed one thing: the smoke job's USR1 margin, from 1800 s to 300 s on a 30-min job.
+  - The generator now uses min(1800 s, walltime/4) and refuses larger margins. It also writes per-file
+    `files_sha256` into `package.json`.
+  - Smoke, check and soc are released to the owner for submission. Relax and static are held until the owner
+    re-confirms after the check timings.
 
 ## 1. Hypothesis under test
 

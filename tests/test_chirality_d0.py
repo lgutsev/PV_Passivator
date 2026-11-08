@@ -103,3 +103,28 @@ def test_slurm_scripts_parse(starts, tmp_path):
     for f in list(out.glob("*.slurm")) + [out / "lib_pvpass.sh"]:
         r = subprocess.run(["bash", "-n", f.name], cwd=out, capture_output=True, text=True)
         assert r.returncode == 0, (f.name, r.stderr)
+
+
+def test_signal_margin_below_walltime(starts, tmp_path):
+    """Desk fix (package 105): USR1 must not fire at start-up of short jobs."""
+    assert P.walltime_s("00:30:00") == 1800 and P.walltime_s("1-00:00:00") == 86400 and P.walltime_s("45:00") == 2700
+    assert P.signal_margin({"time": "00:30:00"}) == 450
+    assert P.signal_margin({"time": "72:00:00"}) == 1800
+    with pytest.raises(SystemExit):
+        P.signal_margin({"time": "00:30:00", "signal_margin_s": 1800})
+    out = tmp_path / "pkg_chiral"
+    P.stage(dict(CFG), starts, out)        # every stage is 1 h in CFG
+    for f in out.glob("*.slurm"):
+        line = next(ln for ln in f.read_text().splitlines() if "--signal" in ln)
+        assert line == "#SBATCH --signal=B:USR1@900", (f.name, line)
+
+
+def test_package_json_has_per_file_sha256(starts, tmp_path):
+    import hashlib
+    out = tmp_path / "pkg_chiral"
+    P.stage(dict(CFG), starts, out)
+    files = json.loads((out / "package.json").read_text())["files_sha256"]
+    on_disk = {f.relative_to(out).as_posix() for f in out.rglob("*") if f.is_file() and f.name != "package.json"}
+    assert set(files) == on_disk and len(files) > 90
+    for rel, h in files.items():
+        assert hashlib.sha256((out / rel).read_bytes()).hexdigest() == h
