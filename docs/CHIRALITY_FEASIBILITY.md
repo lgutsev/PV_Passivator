@@ -74,6 +74,10 @@ reasons are in §9.
     `prepare_chirality_d0.py stage --mode diag`.
     - Four R statics on 105's exact start and mesh: `LREAL = .FALSE.` at 520 / 600 / 700, and `LREAL = Auto` at 700.
     - Checks: mock run 4/4 DONE, `bash -n` clean.
+    - Sent with the owner's "Yes, send it". Taken in as **package 108** (`108_vasp_pvpass_mba2pbi4_lreal_diag`, desk
+      commit `48df5cd`; all 27 hashes match) and released to the owner for submission.
+    - The export will be read with `analyze_chirality_d0.py <105 dir> --diag <108 dir>`. That compares all six R
+      statics and returns the cause (LREAL, basis or unresolved) and the setting for the regenerated relax/static.
 
 ## 1. Hypothesis under test
 

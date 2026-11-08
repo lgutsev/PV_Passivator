@@ -77,3 +77,19 @@ def test_timing_parser(tmp_path):
                  "                  Elapsed time (sec):      601.123\n")
     t = A.timing(p)
     assert t == {"loop_plus_s": [251.2, 12.5], "elapsed_s": 601.123}
+
+
+@pytest.mark.parametrize("shift, cause", [((0.001, 0.002), "LREAL"), ((0.02, 0.021), "basis"), ((0.02, 0.04), "unresolved")])
+def test_diag_cause(shift, cause):
+    """SYNTHETIC: Auto runs carry a 25 meV/A iodide offset; LREAL=.FALSE. runs shift by the given amounts at 600/700."""
+    rng = np.random.default_rng(1)
+    sym = ["Pb", "I", "I", "N", "H"] * 3
+    f = rng.normal(scale=0.1, size=(15, 3))
+    off = np.array([[0.025, 0, 0] if s == "I" else [0, 0, 0] for s in sym])
+    jobs = {"R_kref": _at(sym, -1, f + off), "R_kref_e600": _at(sym, -1, f), "R_e700": _at(sym, -1, f),
+            "R_e520_lrealF": _at(sym, -1, f), "R_e600_lrealF": _at(sym, -1, f + shift[0]),
+            "R_e700_lrealF": _at(sym, -1, f + shift[1])}
+    r = A.analyze_diag(jobs)
+    assert r["cause"] == cause
+    assert r["pairs"]["Auto520_vs_F520"]["I"] == pytest.approx(25.0, abs=0.01)
+    assert A.analyze_diag({**jobs, "R_e700": None})["missing"] == ["R_e700"]

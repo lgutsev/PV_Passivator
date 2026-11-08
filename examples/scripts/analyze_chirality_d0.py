@@ -126,11 +126,62 @@ def analyze(jobs: dict) -> dict:
     return out
 
 
+def analyze_diag(jobs: dict) -> dict:
+    """Package 108 (D0e): which setting removes the iodide force error seen in package 105.
+
+    ``jobs``: R_kref (520, Auto) and R_kref_e600 (600, Auto) from 105; R_e520_lrealF, R_e600_lrealF, R_e700_lrealF and
+    R_e700 (700, Auto) from 108. All share one start and mesh. Max per-atom force differences (meV/A), per element.
+      * LREAL is the cause if the three LREAL=.FALSE. runs agree within 5 meV/A -> relax at 520 with LREAL=.FALSE.
+      * otherwise the lowest LREAL=.FALSE. cutoff within 5 meV/A of the next one up (520 or 600); if even 600 vs 700
+        fails, no setting here is converged and a higher cutoff is needed (no recommendation is forced).
+    """
+    have = {k: v for k, v in jobs.items() if v is not None}
+    need = ["R_kref", "R_kref_e600", "R_e520_lrealF", "R_e600_lrealF", "R_e700_lrealF", "R_e700"]
+    out = {"missing": [k for k in need if k not in have], "pairs": {}}
+    if out["missing"]:
+        out["recommendation"] = "incomplete: decide after the missing jobs are exported"
+        return out
+    sym = np.array(have["R_kref"].get_chemical_symbols())
+
+    def cmp(a, b):
+        d = np.linalg.norm(have[a].get_forces() - have[b].get_forces(), axis=1)
+        return {"max": round(1000 * float(d.max()), 2),
+                **{el: round(1000 * float(d[sym == el].max()), 2) for el in sorted(set(sym))}}
+
+    pairs = {"F520_vs_F600": ("R_e520_lrealF", "R_e600_lrealF"), "F600_vs_F700": ("R_e600_lrealF", "R_e700_lrealF"),
+             "F520_vs_F700": ("R_e520_lrealF", "R_e700_lrealF"), "Auto520_vs_F520": ("R_kref", "R_e520_lrealF"),
+             "Auto600_vs_F600": ("R_kref_e600", "R_e600_lrealF"), "Auto700_vs_F700": ("R_e700", "R_e700_lrealF"),
+             "Auto520_vs_Auto600": ("R_kref", "R_kref_e600"), "Auto600_vs_Auto700": ("R_kref_e600", "R_e700")}
+    for k, (a, b) in pairs.items():
+        out["pairs"][k] = cmp(a, b)
+    tol = 1000 * F_TOL
+    p = out["pairs"]
+    if p["F520_vs_F700"]["max"] <= tol and p["F520_vs_F600"]["max"] <= tol:
+        out["cause"], out["recommendation"] = "LREAL", "relax/static at ENCUT 520 with LREAL=.FALSE."
+    elif p["F600_vs_F700"]["max"] <= tol:
+        out["cause"], out["recommendation"] = "basis", "relax/static at ENCUT 600 with LREAL=.FALSE."
+    else:
+        out["cause"] = "unresolved"
+        out["recommendation"] = "not converged at 700 with LREAL=.FALSE.: needs a higher-cutoff check before any relax"
+    return out
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("package", type=Path)
     ap.add_argument("--json", type=Path)
+    ap.add_argument("--diag", type=Path, help="exported package 108 (D0e); 'package' is then package 105")
     a = ap.parse_args(argv)
+    if a.diag:
+        jobs = {n: load_job(a.package / "outputs" / n / "static") for n in ("R_kref", "R_kref_e600")}
+        jobs.update({n: load_job(a.diag / "outputs" / n / "static")
+                     for n in ("R_e520_lrealF", "R_e600_lrealF", "R_e700_lrealF", "R_e700")})
+        res = analyze_diag(jobs)
+        txt = json.dumps(res, indent=1)
+        if a.json:
+            a.json.write_text(txt)
+        print(txt)
+        return 0
     names = ["R_kref", "R_kdown", "R_kup", "R_kref_e600", "Rmirror_kref", "rac_kref", "rac_kup",
              "R_kref_soc", "rac_kref_soc"]
     jobs = {n: load_job(a.package / "outputs" / n / "static") for n in names}
