@@ -1,0 +1,427 @@
+{
+ "schema": "pvpass_chirality_manifest/1",
+ "note": "experimental X-ray structures, H atoms riding (geometric); not relaxed, not DFT, not MLIP",
+ "structures": {
+  "R": {
+   "source": "COD 7203475 (https://www.crystallography.net/cod/7203475.cif)",
+   "citation": "Billing & Lemmerer, CrystEngComm 2006, 8, 686 (doi:10.1039/b606987h)",
+   "repo_path": "examples/structures/mba2pbi4/R-MBA2PbI4_COD7203475.cif",
+   "sha256": "07c9518758210479578c3079a12d482611d52511e3f3f55f014ee0ce01fb8059",
+   "space_group": "P 21 21 21",
+   "T_K": "173",
+   "flack": "0.095(16)",
+   "R1_obs": "0.0405",
+   "Z": "4",
+   "abs_config": "rmad",
+   "melting_point_C": null,
+   "H_treatment": "constr",
+   "cell_abc_angles": [
+    8.868,
+    9.247,
+    28.729,
+    90.0,
+    90.0,
+    90.0
+   ],
+   "n_atoms": 188,
+   "formula_units_in_cell": 4,
+   "composition_per_fu": "(C8H12N)2PbI4 = C16H24I4N2Pb",
+   "protonation": "every N carries 3 H (NH3+); charge balance 2(+1) + PbI4(2-) = 0",
+   "stereochemistry_check": {
+    "R": 8,
+    "S": 0
+   },
+   "topology": {
+    "n_atoms": 188,
+    "n_metal": 4,
+    "n_layers": 2,
+    "n_molecules": 8,
+    "n_metal_links": 8,
+    "n_org_links": 8,
+    "stereocentres": {
+     "R": 8,
+     "S": 0
+    },
+    "faces": {
+     "+": 4,
+     "-": 4
+    }
+   },
+   "Pb_I_range_A": [
+    3.171,
+    3.346
+   ],
+   "Pb_I_Pb_deg": [
+    150.8,
+    156.4
+   ],
+   "octahedra": {
+    "delta_d_max": 0.0004765622121869528,
+    "sigma2_deg2_range": [
+     18.29,
+     18.29
+    ]
+   },
+   "headgroup_tilt_deg": [
+    123.7,
+    127.4
+   ],
+   "r_HB_A": [
+    2.713,
+    2.859
+   ],
+   "hbonds_per_NH_(3.2A,120deg)": 1.0,
+   "tau_links": {
+    "ax": [
+     -0.0132,
+     0.0135
+    ],
+    "eq": [
+     0.0023,
+     0.0106
+    ],
+    "org": [
+     -0.2706,
+     0.2118
+    ]
+   },
+   "tau_mean": {
+    "ax": 0.00016,
+    "eq": 0.00649,
+    "org": -0.02942
+   },
+   "tau_layer_mean": {
+    "ax": {
+     "0": 0.00016,
+     "1": 0.00016
+    },
+    "eq": {
+     "0": 0.00649,
+     "1": 0.00649
+    },
+    "org": {
+     "(0, -1)": -0.02942,
+     "(0, 1)": -0.02942,
+     "(1, -1)": -0.02942,
+     "(1, 1)": -0.02942
+    }
+   }
+  },
+  "S": {
+   "source": "COD 7203476 (https://www.crystallography.net/cod/7203476.cif)",
+   "citation": "Billing & Lemmerer, CrystEngComm 2006, 8, 686 (doi:10.1039/b606987h)",
+   "repo_path": "examples/structures/mba2pbi4/S-MBA2PbI4_COD7203476.cif",
+   "sha256": "95272d60ad4bde2ba7f9c34f164fb105282f5acbb82f267e62185c9668b38c19",
+   "space_group": "P 21 21 21",
+   "T_K": "173",
+   "flack": "0.057(13)",
+   "R1_obs": "0.0316",
+   "Z": "4",
+   "abs_config": "rmad",
+   "melting_point_C": null,
+   "H_treatment": "constr",
+   "cell_abc_angles": [
+    8.8531,
+    9.2312,
+    28.65,
+    90.0,
+    90.0,
+    90.0
+   ],
+   "n_atoms": 188,
+   "formula_units_in_cell": 4,
+   "composition_per_fu": "(C8H12N)2PbI4 = C16H24I4N2Pb",
+   "protonation": "every N carries 3 H (NH3+); charge balance 2(+1) + PbI4(2-) = 0",
+   "stereochemistry_check": {
+    "R": 0,
+    "S": 8
+   },
+   "topology": {
+    "n_atoms": 188,
+    "n_metal": 4,
+    "n_layers": 2,
+    "n_molecules": 8,
+    "n_metal_links": 8,
+    "n_org_links": 8,
+    "stereocentres": {
+     "R": 0,
+     "S": 8
+    },
+    "faces": {
+     "+": 4,
+     "-": 4
+    }
+   },
+   "Pb_I_range_A": [
+    3.166,
+    3.344
+   ],
+   "Pb_I_Pb_deg": [
+    150.6,
+    156.5
+   ],
+   "octahedra": {
+    "delta_d_max": 0.0005075320710711379,
+    "sigma2_deg2_range": [
+     18.88,
+     18.88
+    ]
+   },
+   "headgroup_tilt_deg": [
+    125.5,
+    128.6
+   ],
+   "r_HB_A": [
+    2.745,
+    2.807
+   ],
+   "hbonds_per_NH_(3.2A,120deg)": 1.0,
+   "tau_links": {
+    "ax": [
+     -0.0146,
+     0.0143
+    ],
+    "eq": [
+     -0.011,
+     -0.0015
+    ],
+    "org": [
+     -0.2098,
+     0.2388
+    ]
+   },
+   "tau_mean": {
+    "ax": -0.00018,
+    "eq": -0.00625,
+    "org": 0.01446
+   },
+   "tau_layer_mean": {
+    "ax": {
+     "0": -0.00018,
+     "1": -0.00018
+    },
+    "eq": {
+     "0": -0.00625,
+     "1": -0.00625
+    },
+    "org": {
+     "(0, -1)": 0.01446,
+     "(0, 1)": 0.01446,
+     "(1, -1)": 0.01446,
+     "(1, 1)": 0.01446
+    }
+   }
+  },
+  "rac": {
+   "source": "COD 2201646 (https://www.crystallography.net/cod/2201646.cif)",
+   "citation": "Billing, Acta Cryst. E 2002, 58, m669 (doi:10.1107/S1600536802019025)",
+   "repo_path": "examples/structures/mba2pbi4/rac-MBA2PbI4_COD2201646.cif",
+   "sha256": "086970b6e99cf30ff3feb00f6caff4df621ff18b44486539ef669fcab2018ab3",
+   "space_group": "P 1 21/a 1",
+   "T_K": "293",
+   "flack": null,
+   "R1_obs": "0.024",
+   "Z": "2",
+   "abs_config": null,
+   "melting_point_C": "166.5(15)",
+   "H_treatment": "constr",
+   "cell_abc_angles": [
+    8.7935,
+    9.3913,
+    14.6428,
+    90.0,
+    100.093,
+    90.0
+   ],
+   "n_atoms": 94,
+   "formula_units_in_cell": 2,
+   "composition_per_fu": "(C8H12N)2PbI4 = C16H24I4N2Pb",
+   "protonation": "every N carries 3 H (NH3+); charge balance 2(+1) + PbI4(2-) = 0",
+   "stereochemistry_check": {
+    "R": 2,
+    "S": 2
+   },
+   "topology": {
+    "n_atoms": 94,
+    "n_metal": 2,
+    "n_layers": 1,
+    "n_molecules": 4,
+    "n_metal_links": 4,
+    "n_org_links": 4,
+    "stereocentres": {
+     "R": 2,
+     "S": 2
+    },
+    "faces": {
+     "+": 2,
+     "-": 2
+    }
+   },
+   "Pb_I_range_A": [
+    3.19,
+    3.323
+   ],
+   "Pb_I_Pb_deg": [
+    155.4
+   ],
+   "octahedra": {
+    "delta_d_max": 0.00027825298980343316,
+    "sigma2_deg2_range": [
+     14.58,
+     14.58
+    ]
+   },
+   "headgroup_tilt_deg": [
+    125.6
+   ],
+   "r_HB_A": [
+    2.807
+   ],
+   "hbonds_per_NH_(3.2A,120deg)": 1.0,
+   "tau_links": {
+    "ax": [
+     -0.1038,
+     0.1038
+    ],
+    "eq": [
+     -0.0056,
+     0.0056
+    ],
+    "org": [
+     -0.2087,
+     0.2087
+    ]
+   },
+   "tau_mean": {
+    "ax": 0.0,
+    "eq": 0.0,
+    "org": 0.0
+   },
+   "tau_layer_mean": {
+    "ax": {
+     "0": 0.0
+    },
+    "eq": {
+     "0": 0.0
+    },
+    "org": {
+     "(0, -1)": -0.0,
+     "(0, 1)": 0.0
+    }
+   }
+  },
+  "S_mirror": {
+   "construction": "inversion of the R CIF through the origin (r -> -r), cell unchanged (right-handed)",
+   "parent": "R",
+   "topology": {
+    "n_atoms": 188,
+    "n_metal": 4,
+    "n_layers": 2,
+    "n_molecules": 8,
+    "n_metal_links": 8,
+    "n_org_links": 8,
+    "stereocentres": {
+     "R": 0,
+     "S": 8
+    },
+    "faces": {
+     "+": 4,
+     "-": 4
+    }
+   },
+   "Pb_I_range_A": [
+    3.171,
+    3.346
+   ],
+   "Pb_I_Pb_deg": [
+    150.8,
+    156.4
+   ],
+   "octahedra": {
+    "delta_d_max": 0.00047656221218695614,
+    "sigma2_deg2_range": [
+     18.29,
+     18.29
+    ]
+   },
+   "headgroup_tilt_deg": [
+    123.7,
+    127.4
+   ],
+   "r_HB_A": [
+    2.713,
+    2.859
+   ],
+   "hbonds_per_NH_(3.2A,120deg)": 1.0,
+   "tau_links": {
+    "ax": [
+     -0.0135,
+     0.0132
+    ],
+    "eq": [
+     -0.0106,
+     -0.0023
+    ],
+    "org": [
+     -0.2118,
+     0.2706
+    ]
+   },
+   "tau_mean": {
+    "ax": -0.00016,
+    "eq": -0.00649,
+    "org": 0.02942
+   },
+   "tau_layer_mean": {
+    "ax": {
+     "0": -0.00016,
+     "1": -0.00016
+    },
+    "eq": {
+     "0": -0.00649,
+     "1": -0.00649
+    },
+    "org": {
+     "(0, -1)": 0.02942,
+     "(0, 1)": 0.02942,
+     "(1, -1)": 0.02942,
+     "(1, 1)": 0.02942
+    }
+   },
+   "vs_S_crystal": {
+    "cell_diff_A": [
+     -0.0149,
+     -0.0158,
+     -0.079
+    ],
+    "translation_frac": [
+     0.0,
+     0.0003,
+     -0.0001
+    ],
+    "per_species": {
+     "C": {
+      "rms_A": 0.0361,
+      "max_A": 0.0998
+     },
+     "H": {
+      "rms_A": 0.0533,
+      "max_A": 0.1064
+     },
+     "I": {
+      "rms_A": 0.0227,
+      "max_A": 0.0372
+     },
+     "N": {
+      "rms_A": 0.0578,
+      "max_A": 0.0601
+     },
+     "Pb": {
+      "rms_A": 0.0047,
+      "max_A": 0.0067
+     }
+    }
+   }
+  }
+ }
+}

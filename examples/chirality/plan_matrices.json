@@ -1,0 +1,60 @@
+{
+ "schema": "pvpass_chirality_plan/1",
+ "status": "PROPOSED ONLY. Not staged, not submitted, no package number. Requires owner approval and a desk package number before any LONI work.",
+ "date": "2026-11-08",
+ "electronic_structure_profile": {
+  "label_target": "r2SCAN+D3(BJ), the project label profile (same INCAR family as data/prerelax_a0/dataset_v2: METAGGA=R2SCAN, IVDW=12, VDW_S8=0.7898, VDW_A1=0.4948, VDW_A2=5.7308, ENCUT=520, PREC=Accurate, LASPH=.TRUE., ISMEAR=0, SIGMA=0.05)",
+  "differences_from_slab_profile": "bulk cells: no LDIPOL/IDIPOL; k-mesh from convergence step D0; ISYM=0 for the mirror-pair check",
+  "SOC": "off for structural sampling; SOC on/off force comparison on 3 frames (D0c) decides whether that is acceptable",
+  "never_mix_with": ["HYDRA SCAN-rVV10 labels", "legacy PBE spreadsheet values", "Pols et al. SCAN values (reference only)"]
+ },
+ "dft_validation_matrix": [
+  {"id": "D0a", "what": "k-mesh/ENCUT convergence, R cell (188 atoms): 2x2x1, 3x3x1, 4x4x1; ENCUT 520/600", "n_singlepoints": 5, "purpose": "convergence of forces (target < 5 meV/A change) and R-rac energy difference (< 1 meV/f.u.)"},
+  {"id": "D0b", "what": "timing benchmark: one r2SCAN single point of R at the D0a mesh", "n_singlepoints": 1, "purpose": "replace the inferred cost below with a measured one before anything else is submitted"},
+  {"id": "D0c", "what": "SOC on/off on 3 frames (R relaxed, R 358 K snapshot, rac relaxed)", "n_singlepoints": 6, "purpose": "force/stress difference from SOC; if > 20 meV/A in Pb-I environments, SOC enters the structural protocol"},
+  {"id": "D1", "what": "relaxations: R and rac, fixed experimental cell then full cell (ISIF=3)", "n_relax": 4, "purpose": "DFT reference minima; static descriptors tau_ax/eq/org of the relaxed cells"},
+  {"id": "D2", "what": "mirror check: single point of the exact inversion of relaxed R (ISYM=0)", "n_singlepoints": 1, "purpose": "E(R) = E(S) to numerical tolerance and forces map by the inversion; checks settings, not physics"},
+  {"id": "D3", "what": "NH3+ rotation scan about C*-N, one cation, 0-120 deg in 10 deg steps, rigid then constrained-relaxed endpoints; R and rac", "n_singlepoints": 26, "purpose": "rotational profile and barrier; H-bond rearrangement path"},
+  {"id": "D4", "what": "C*-C(ipso) ring torsion scan, 0-360 deg in 30 deg steps; R and rac", "n_singlepoints": 24, "purpose": "spacer rigidity mode"},
+  {"id": "D5", "what": "methyl rotor scan (control restraint target), 0-120 deg in 20 deg steps; R", "n_singlepoints": 7, "purpose": "barrier of the control motion used in the restraint intervention"},
+  {"id": "D6", "what": "octahedral tilt/twist displacement patterns (+/- 2 amplitudes x 3 patterns); R", "n_singlepoints": 12, "purpose": "framework curvature along chirality-changing distortions"},
+  {"id": "D7", "what": "in-plane biaxial strain +/-1 %, +/-2 %; R and rac", "n_singlepoints": 8, "purpose": "stress labels and strain coupling (needed for NPT)"},
+  {"id": "D8", "what": "finite-T frames: 30 decorrelated frames per system (R, rac) per T (173, 293, 358 K) from short pre-relaxer MD", "n_singlepoints": 180, "purpose": "training/validation pool; split by trajectory, never by neighbouring frames"},
+  {"id": "D9", "what": "held-out final test: independent seeds, 10 frames per system per T, plus the rac rotation scan", "n_singlepoints": 60, "purpose": "final test set; never used for fitting or active-learning selection"}
+ ],
+ "dft_cost_estimate": {
+  "basis": "[I] package 53: ~3 node-h per static and ~1 node-h per ionic step for a 504-atom slab on 2 x 64 cores. A 188-atom bulk cell with a 3x3x1 mesh is estimated at 0.3-1 node-h per single point. D0b replaces this with a measurement.",
+  "singlepoints": 330,
+  "relax_steps": "4 relaxations x 40-80 steps",
+  "total_node_hours": "about 150-500 (single points 100-330, relaxations 50-160, SOC check ~20)",
+  "first_tranche_for_approval": "D0a-D0c + D1 + D2 (about 30-120 node-h); everything else waits for D0b timing and the D1 minima"
+ },
+ "mlip_acceptance_criteria_fixed_before_production": {
+  "forces_heldout": "per environment (N-H, C-H, C, N, Pb, I_axial, I_bridging): RMSE <= 0.05 eV/A and none > 0.08 eV/A on D9",
+  "static_descriptors": "relaxed MLIP vs relaxed DFT (D1): same sign for every net tau; |delta net tau| <= 25 % of the DFT value; per-link tau within 0.02",
+  "rotational_profiles": "D3/D4/D5 barriers within max(20 meV, 15 %) of DFT; profile RMSE <= 10 meV",
+  "relative_energy": "R vs rac energy difference within 10 meV per formula unit",
+  "stress": "within 0.3 GPa on D7 if NPT is used",
+  "mirror": "E(R) = E(inverted R) and mapped forces (automatic for O(3)-invariant MACE; reported, but it is not evidence of accuracy)",
+  "note": "foundation MACE-matpes-r2scan has 0.07-0.085 eV/A force RMSE near DFT minima of FAPbI3 slab complexes and no chiral-spacer data; it is expected to fail these criteria without fine-tuning"
+ },
+ "md_matrix": {
+  "systems": {"R": "data/cache/chirality_bench/POSCAR_R_exp after DFT/MLIP relaxation", "S": "exact inversion of relaxed R (never the separately refined S crystal)", "rac": "relaxed rac"},
+  "cell": "2x2x1 of the conventional cell (R/S: 752 atoms; rac: 376 atoms); decisive comparison repeated in 4x4x1 (3008 / 1504 atoms)",
+  "temperatures_K": [173, 293, 358],
+  "temperature_rationale": "173 K = chiral X-ray temperature; 293 K = racemate X-ray temperature and room temperature; 358 K = 85 C device stress test, 82 K below the racemate melting point (166.5 C). Phase transitions of the chiral phase in 173-358 K are NOT verified: check the DSC literature before approval.",
+  "seeds_per_condition": 3,
+  "protocol": "NPT (anisotropic, MTK or Berendsen-then-MTK) 25 ps equilibration -> NVT at the mean NPT cell 250 ps production -> 3 x 20 ps NVE segments from production snapshots for time correlations; timestep 0.5 fs, frames every 10 fs",
+  "matched_cell_control": "R at 358 K in the 293 K mean cell (and vice versa) to separate temperature from volume/strain",
+  "intervention": "R at 293 K: harmonic restraint on every NH3+ rotor dihedral (H-N-C*-C_ipso) with k = 0.5, 2, 10 eV/rad^2 (3 seeds each); control: same k on the methyl rotor dihedral (3 seeds at k = 2). Changes the Hamiltonian: mechanistic probe only. Restraint code is NOT implemented yet.",
+  "runs": {"main": 27, "intervention": 12, "matched_cell": 6, "large_cell": 6},
+  "stop_conditions": ["any stereocentre inverts", "any Pb loses or gains an I (coordination != 6)", "proton transfer N-H -> I (H...I < 1.9 A)", "committee/uncertainty above the D9-calibrated threshold for > 1 % of frames", "NVE energy drift > 1 meV/atom/ps", "production not converged by block averaging -> extend once to 1 ns, then report inconclusive"]
+ },
+ "md_cost_estimate": {
+  "measured": "[M] 2026-11-08, laptop RTX 5070, MACE-matpes-r2scan foundation model, ASE calculator, float32: 0.38 s per energy+forces+stress call for 752 atoms (float64: 5.8 s; the 188-atom cell is slower per call because of neighbour-list overhead)",
+  "per_run_laptop": "275 ps / 0.5 fs = 5.5e5 steps x 0.38 s = ~58 h for a 752-atom run",
+  "total_physical_time_ns": "main 7.4 + intervention 3.3 + matched 1.7 + large-cell 1.7 = ~14 ns",
+  "total_gpu_hours_laptop_equivalent": "~3500-4000 (45 runs x 58 h, rac runs about half; 6 large-cell runs at ~4x per step)",
+  "note": "A fine-tuned model may run at a different speed; LAMMPS-MACE or cuequivariance on an A100/H100 should be benchmarked before any HPC request. These numbers are not an authorization."
+ }
+}
