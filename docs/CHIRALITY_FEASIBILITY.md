@@ -39,6 +39,14 @@ reasons are in §9.
     `files_sha256` into `package.json`.
   - Smoke, check and soc are released to the owner for submission. Relax and static are held until the owner
     re-confirms after the check timings.
+- **Released runs finished (desk report, 2026-11-08):** smoke 3:16; check 10:03 / 8:16 / 19:17 / 13:03 / 10:02 /
+  5:01 / 11:03 (R_kref, R_kdown, R_kup, R_kref_e600, Rmirror_kref, rac_kref, rac_kup; 1 node each); soc 1:16:22 (R)
+  and 28:08 (rac) on 2 nodes. That is about 0.2 node-h for check and 3.5 node-h for soc, against 17–55 estimated.
+  - Energies, forces and LOOP+ timings await the export. `examples/scripts/analyze_chirality_d0.py` (tests:
+    `tests/test_analyze_chirality_d0.py`) applies the D0 thresholds and recommends the mesh.
+  - **Projected relax + static cost** [I]: a converged R static takes ~10 min (~16 min at ENCUT 676), and an ionic
+    step is about half a static. 40–120 steps per relax gives about 14–50 node-h for the four relaxes plus < 1 node-h
+    for the statics. That is below the 120 node-h re-confirmation line and inside the approved 30–120.
 
 ## 1. Hypothesis under test
 
