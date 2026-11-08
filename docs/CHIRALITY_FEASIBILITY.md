@@ -47,6 +47,28 @@ reasons are in §9.
   - **Projected relax + static cost** [I]: a converged R static takes ~10 min (~16 min at ENCUT 676), and an ionic
     step is about half a static. 40–120 steps per relax gives about 14–50 node-h for the four relaxes plus < 1 node-h
     for the statics. That is below the 120 node-h re-confirmation line and inside the approved 30–120.
+- **D0 results [M] (export of package 105, `analyze_chirality_d0.py`):**
+
+  | Check | Result | Verdict |
+  |---|---|---|
+  | k-mesh, R | 3×3×1 vs 4×4×1: max force change 1.1 meV/Å (2×2×1 is off by 16.9) | pass |
+  | k-mesh, rac | 3×3×2 vs 4×4×3: 0.8 meV/Å | pass |
+  | R − rac energy | −96.8 meV/f.u. at the reference meshes, −96.4 at the dense ones (change 0.4) | pass |
+  | Mirror (D2) | R vs exact inversion: ΔE = 0.0 meV/cell, forces opposite to 0.3 meV/Å | pass (a settings check, not physics) |
+  | SOC (D0c) | Max force change: Pb 12.8, I 9.3, others ≤ 3.8 meV/Å; −18.2 meV/atom in energy | SOC off is acceptable for structure (< 20) |
+  | **ENCUT** | **520 vs 600 eV: max 25.9 meV/Å, systematic on I (RMS 22.5), C 9.5 RMS, H/N/Pb ≤ 5** | **fail** |
+  | Start forces | DFT fmax on the H-settled X-ray cells: 1.46 (R) and 1.93 (rac) eV/Å | relaxation needed |
+
+  - The owner's condition for releasing relax/static ("Yes, if it passes") is **not met**. Both arrays stay held,
+    and the receipt is recorded in the desk ledger.
+  - I has the softest POTCAR (ENMAX 176 eV), so the I error points to `LREAL = Auto` or r2SCAN grid sensitivity
+    rather than basis incompleteness [I].
+  - The framework descriptors are built from iodide positions, so this must be resolved before relaxing.
+  - **Proposed** [P], not staged: four R statics at about 1–1.5 node-h: `LREAL = .FALSE.` at 520 / 600 / 700 eV,
+    and `LREAL = Auto` at 700 eV. If the error is LREAL, relax at 520 with `LREAL = .FALSE.`; otherwise take the
+    lowest ENCUT whose forces are within 5 meV/Å of the next step up. Either way the relax inputs are regenerated.
+    The settings then differ from the package 53 label profile, which matters if these frames are later mixed
+    into the same training set.
 
 ## 1. Hypothesis under test
 
