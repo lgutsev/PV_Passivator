@@ -1,0 +1,840 @@
+{
+ "schema": "adsearch_demo/1",
+ "provenance": {
+  "config": "melamine2_on_PbI2",
+  "slab": {
+   "path": "C:\\Users\\lguts\\OneDrive\\Desktop\\Research\\2026\\Perovskites\\GIEC_Projects\\VASP\\SCAN\\PbI2_Surf_335_SCAN\\FAPI_333_x_PbI2_Surf\\CONTCAR",
+   "sha256_16": "51a2d7560eeb9fcd",
+   "formal_charge": 0,
+   "formal_units": {
+    "FA+": 45,
+    "I-": 153,
+    "Pb2+": 54
+   },
+   "vacuum_A": 44.53,
+   "thickness_A": 32.52
+  },
+  "molecule": {
+   "from_complex": "C:\\Users\\lguts\\OneDrive\\Desktop\\Test_Code\\PV_Passivator_acat\\data\\cache\\X_OutPackLite_PbI2_Surf_335_PBE_Mar15_2025\\X_OutPackLite_PbI2_Surf_335_PBE_Mar15_2025\\FAPI_333_x_PbI2_Surf_Mel\\CONTCAR",
+   "sha256_16": "5d75d0050b679a41",
+   "formula": "C3H6N6",
+   "total_charge": 0,
+   "multiplicity": 1,
+   "chemical_form": "neutral_donor"
+  },
+  "code_commit": "c725f0534b64dbc4effe5fee8316edf858a0e321"
+ },
+ "space": {
+  "surface_id": "melamine2_on_PbI2_slab",
+  "slab_sha256_16": "51a2d7560eeb9fcd",
+  "face": "bottom",
+  "termination": "PbI2",
+  "n_substrate_atoms": 567,
+  "n_sites": 9,
+  "site_kinds": [
+   "undercoordinated_Pb"
+  ],
+  "molecule": "melamine",
+  "molecule_sha256_16": "2648cd2fd917413a",
+  "n_molecules": 2,
+  "modes": [
+   {
+    "mode_id": "ringN_endon",
+    "anchor": 10,
+    "height": 2.6,
+    "up": "anchor_to_centroid",
+    "tilts": [
+     0.0,
+     15.0,
+     30.0
+    ],
+    "anchor_window": [
+     2.3,
+     3.2
+    ],
+    "azimuth_period": 360.0,
+    "second_anchor": null,
+    "second_window": [
+     2.0,
+     3.6
+    ],
+    "second_site_kind": "undercoordinated_Pb",
+    "description": "triazine ring N dative to 5-coordinate Pb, ring plane upright; the motif of the legacy Mel/MelMel complexes (N-Pb 2.58-2.69 A)"
+   },
+   {
+    "mode_id": "amineN_endon",
+    "anchor": 9,
+    "height": 2.7,
+    "up": "anchor_to_centroid",
+    "tilts": [
+     0.0,
+     15.0,
+     30.0
+    ],
+    "anchor_window": [
+     2.3,
+     3.3
+    ],
+    "azimuth_period": 360.0,
+    "second_anchor": null,
+    "second_window": [
+     2.0,
+     3.6
+    ],
+    "second_site_kind": "undercoordinated_Pb",
+    "description": "amine N toward Pb, ring plane upright"
+   },
+   {
+    "mode_id": "flat",
+    "anchor": -1,
+    "height": 3.4,
+    "up": "plane_normal",
+    "tilts": [
+     0.0
+    ],
+    "anchor_window": [
+     2.0,
+     3.6
+    ],
+    "azimuth_period": 120.0,
+    "second_anchor": null,
+    "second_window": [
+     2.0,
+     3.6
+    ],
+    "second_site_kind": "undercoordinated_Pb",
+    "description": "ring flat over Pb, N-H...I contacts; seen for the second molecule of legacy MelMel (N-Pb 3.66 A)"
+   }
+  ],
+  "conformers": [
+   "c0"
+  ],
+  "azimuth_step": 30.0,
+  "symmetry": "site_lattice",
+  "symops": [
+   {
+    "translation_A": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "site_residual_A": 0.0,
+    "inorganic_residual_A": 0.0,
+    "organic_residual_A": 0.0
+   },
+   {
+    "translation_A": [
+     0.0,
+     0.0,
+     6.281
+    ],
+    "site_residual_A": 0.0,
+    "inorganic_residual_A": 0.0,
+    "organic_residual_A": 0.0
+   },
+   {
+    "translation_A": [
+     0.0,
+     0.0,
+     12.561
+    ],
+    "site_residual_A": 0.0,
+    "inorganic_residual_A": 0.0,
+    "organic_residual_A": 0.0
+   },
+   {
+    "translation_A": [
+     0.0,
+     6.463,
+     0.0
+    ],
+    "site_residual_A": 0.0,
+    "inorganic_residual_A": 0.0,
+    "organic_residual_A": 0.0
+   },
+   {
+    "translation_A": [
+     0.0,
+     6.463,
+     6.281
+    ],
+    "site_residual_A": 0.0,
+    "inorganic_residual_A": 0.0,
+    "organic_residual_A": 0.0
+   },
+   {
+    "translation_A": [
+     0.0,
+     6.463,
+     12.561
+    ],
+    "site_residual_A": 0.0,
+    "inorganic_residual_A": 0.0,
+    "organic_residual_A": 0.0
+   },
+   {
+    "translation_A": [
+     0.0,
+     12.925,
+     0.0
+    ],
+    "site_residual_A": 0.0,
+    "inorganic_residual_A": 0.0,
+    "organic_residual_A": 0.0
+   },
+   {
+    "translation_A": [
+     0.0,
+     12.925,
+     6.281
+    ],
+    "site_residual_A": 0.0,
+    "inorganic_residual_A": 0.0,
+    "organic_residual_A": 0.0
+   },
+   {
+    "translation_A": [
+     0.0,
+     12.925,
+     12.561
+    ],
+    "site_residual_A": 0.0,
+    "inorganic_residual_A": 0.0,
+    "organic_residual_A": 0.0
+   }
+  ],
+  "validity": {
+   "clash_scale_slab": 1.0,
+   "clash_scale_mol": 1.3,
+   "min_clearance_A": -0.5,
+   "vacuum_margin_A": 8.0
+  }
+ },
+ "coverage": {
+  "n_molecules": 2,
+  "area_A2": 365.31,
+  "molecules_per_nm2": 0.5475,
+  "occupied_sites": 2,
+  "n_sites": 9,
+  "site_convention": "one site per anchoring atom declared by the binding mode (denticity); sites merely shadowed by the molecule are not counted"
+ },
+ "bare_slab": {
+  "file": "bare_slab_labelled.extxyz",
+  "integrity_ok": true,
+  "integrity_note": "",
+  "n_substrate": 567,
+  "n_site_markers": 9,
+  "sites": [
+   {
+    "site_id": "bottom-Pb513",
+    "kind": "undercoordinated_Pb",
+    "atom_index": 513,
+    "coordination": 5
+   },
+   {
+    "site_id": "bottom-Pb514",
+    "kind": "undercoordinated_Pb",
+    "atom_index": 514,
+    "coordination": 5
+   },
+   {
+    "site_id": "bottom-Pb515",
+    "kind": "undercoordinated_Pb",
+    "atom_index": 515,
+    "coordination": 5
+   },
+   {
+    "site_id": "bottom-Pb516",
+    "kind": "undercoordinated_Pb",
+    "atom_index": 516,
+    "coordination": 5
+   },
+   {
+    "site_id": "bottom-Pb517",
+    "kind": "undercoordinated_Pb",
+    "atom_index": 517,
+    "coordination": 5
+   },
+   {
+    "site_id": "bottom-Pb518",
+    "kind": "undercoordinated_Pb",
+    "atom_index": 518,
+    "coordination": 5
+   },
+   {
+    "site_id": "bottom-Pb519",
+    "kind": "undercoordinated_Pb",
+    "atom_index": 519,
+    "coordination": 5
+   },
+   {
+    "site_id": "bottom-Pb520",
+    "kind": "undercoordinated_Pb",
+    "atom_index": 520,
+    "coordination": 5
+   },
+   {
+    "site_id": "bottom-Pb521",
+    "kind": "undercoordinated_Pb",
+    "atom_index": 521,
+    "coordination": 5
+   }
+  ]
+ },
+ "single_molecule_stage": {
+  "ringN_endon": {
+   "tried": 324,
+   "valid": 270,
+   "slab_clash": 54,
+   "anchor_A_range": [
+    2.6,
+    2.6
+   ],
+   "denticity": 1
+  },
+  "amineN_endon": {
+   "tried": 324,
+   "valid": 324,
+   "anchor_A_range": [
+    2.7,
+    2.7
+   ],
+   "denticity": 1
+  },
+  "flat": {
+   "tried": 36,
+   "valid": 36,
+   "anchor_A_range": null,
+   "denticity": 1
+  }
+ },
+ "candidate_set": {
+  "n": 12,
+  "attempts": 14,
+  "rejections": {
+   "molecule_clash": 1,
+   "slab_clash": 2
+  },
+  "records": [
+   {
+    "id": "c000",
+    "attempt": 0,
+    "seed": 0,
+    "operator": "random_init",
+    "parents": [],
+    "genes": [
+     {
+      "site_id": "bottom-Pb519",
+      "mode_id": "ringN_endon",
+      "conformer_id": "c0",
+      "azimuth_deg": 90.0,
+      "tilt_deg": 0.0
+     },
+     {
+      "site_id": "bottom-Pb518",
+      "mode_id": "ringN_endon",
+      "conformer_id": "c0",
+      "azimuth_deg": 0.0,
+      "tilt_deg": 0.0
+     }
+    ],
+    "validity": {
+     "mol1_anchor_A": 2.6,
+     "mol1_height_A": [
+      1.47,
+      6.89
+     ],
+     "mol2_anchor_A": 2.6,
+     "mol2_height_A": [
+      1.47,
+      6.89
+     ]
+    },
+    "key": "(('bottom-Pb513', 'ringN_endon', 'c0', 0, 0), ('bottom-Pb517', 'ringN_endon', 'c0', 6, 0))",
+    "hash": "a185d2b9ff9e7ff1",
+    "file": "candidates/c000.extxyz",
+    "n_atoms": 597,
+    "roles": {
+     "substrate": 567,
+     "passivant": 30
+    },
+    "substrate_identical": true
+   },
+   {
+    "id": "c001",
+    "attempt": 1,
+    "seed": 0,
+    "operator": "random_init",
+    "parents": [],
+    "genes": [
+     {
+      "site_id": "bottom-Pb519",
+      "mode_id": "amineN_endon",
+      "conformer_id": "c0",
+      "azimuth_deg": 210.0,
+      "tilt_deg": 30.0
+     },
+     {
+      "site_id": "bottom-Pb518",
+      "mode_id": "flat",
+      "conformer_id": "c0",
+      "azimuth_deg": 60.0,
+      "tilt_deg": 0.0
+     }
+    ],
+    "validity": {
+     "mol1_anchor_A": 2.7,
+     "mol1_height_A": [
+      1.7,
+      7.72
+     ],
+     "mol2_height_A": [
+      2.99,
+      3.28
+     ]
+    },
+    "key": "(('bottom-Pb513', 'amineN_endon', 'c0', 14, 2), ('bottom-Pb521', 'flat', 'c0', 4, 0))",
+    "hash": "11855cb078c0b622",
+    "file": "candidates/c001.extxyz",
+    "n_atoms": 597,
+    "roles": {
+     "substrate": 567,
+     "passivant": 30
+    },
+    "substrate_identical": true
+   },
+   {
+    "id": "c002",
+    "attempt": 3,
+    "seed": 0,
+    "operator": "random_init",
+    "parents": [],
+    "genes": [
+     {
+      "site_id": "bottom-Pb517",
+      "mode_id": "flat",
+      "conformer_id": "c0",
+      "azimuth_deg": 90.0,
+      "tilt_deg": 0.0
+     },
+     {
+      "site_id": "bottom-Pb513",
+      "mode_id": "ringN_endon",
+      "conformer_id": "c0",
+      "azimuth_deg": 30.0,
+      "tilt_deg": 30.0
+     }
+    ],
+    "validity": {
+     "mol1_height_A": [
+      2.99,
+      3.28
+     ],
+     "mol2_anchor_A": 2.6,
+     "mol2_height_A": [
+      0.49,
+      6.71
+     ]
+    },
+    "key": "(('bottom-Pb513', 'flat', 'c0', 6, 0), ('bottom-Pb521', 'ringN_endon', 'c0', 2, 2))",
+    "hash": "ec7c1dabdec04e53",
+    "file": "candidates/c002.extxyz",
+    "n_atoms": 597,
+    "roles": {
+     "substrate": 567,
+     "passivant": 30
+    },
+    "substrate_identical": true
+   },
+   {
+    "id": "c003",
+    "attempt": 4,
+    "seed": 0,
+    "operator": "random_init",
+    "parents": [],
+    "genes": [
+     {
+      "site_id": "bottom-Pb517",
+      "mode_id": "ringN_endon",
+      "conformer_id": "c0",
+      "azimuth_deg": 150.0,
+      "tilt_deg": 15.0
+     },
+     {
+      "site_id": "bottom-Pb513",
+      "mode_id": "amineN_endon",
+      "conformer_id": "c0",
+      "azimuth_deg": 0.0,
+      "tilt_deg": 0.0
+     }
+    ],
+    "validity": {
+     "mol1_anchor_A": 2.6,
+     "mol1_height_A": [
+      0.93,
+      6.95
+     ],
+     "mol2_anchor_A": 2.7,
+     "mol2_height_A": [
+      1.89,
+      7.53
+     ]
+    },
+    "key": "(('bottom-Pb513', 'amineN_endon', 'c0', 0, 0), ('bottom-Pb517', 'ringN_endon', 'c0', 10, 1))",
+    "hash": "68c0ee379cd4ccc7",
+    "file": "candidates/c003.extxyz",
+    "n_atoms": 597,
+    "roles": {
+     "substrate": 567,
+     "passivant": 30
+    },
+    "substrate_identical": true
+   },
+   {
+    "id": "c004",
+    "attempt": 5,
+    "seed": 0,
+    "operator": "random_init",
+    "parents": [],
+    "genes": [
+     {
+      "site_id": "bottom-Pb513",
+      "mode_id": "amineN_endon",
+      "conformer_id": "c0",
+      "azimuth_deg": 210.0,
+      "tilt_deg": 0.0
+     },
+     {
+      "site_id": "bottom-Pb521",
+      "mode_id": "amineN_endon",
+      "conformer_id": "c0",
+      "azimuth_deg": 270.0,
+      "tilt_deg": 15.0
+     }
+    ],
+    "validity": {
+     "mol1_anchor_A": 2.7,
+     "mol1_height_A": [
+      1.89,
+      7.53
+     ],
+     "mol2_anchor_A": 2.7,
+     "mol2_height_A": [
+      1.84,
+      7.8
+     ]
+    },
+    "key": "(('bottom-Pb513', 'amineN_endon', 'c0', 14, 0), ('bottom-Pb521', 'amineN_endon', 'c0', 18, 1))",
+    "hash": "0a558ccaab414972",
+    "file": "candidates/c004.extxyz",
+    "n_atoms": 597,
+    "roles": {
+     "substrate": 567,
+     "passivant": 30
+    },
+    "substrate_identical": true
+   },
+   {
+    "id": "c005",
+    "attempt": 6,
+    "seed": 0,
+    "operator": "random_init",
+    "parents": [],
+    "genes": [
+     {
+      "site_id": "bottom-Pb516",
+      "mode_id": "flat",
+      "conformer_id": "c0",
+      "azimuth_deg": 30.0,
+      "tilt_deg": 0.0
+     },
+     {
+      "site_id": "bottom-Pb521",
+      "mode_id": "flat",
+      "conformer_id": "c0",
+      "azimuth_deg": 90.0,
+      "tilt_deg": 0.0
+     }
+    ],
+    "validity": {
+     "mol1_height_A": [
+      2.99,
+      3.28
+     ],
+     "mol2_height_A": [
+      2.99,
+      3.28
+     ]
+    },
+    "key": "(('bottom-Pb513', 'flat', 'c0', 2, 0), ('bottom-Pb518', 'flat', 'c0', 6, 0))",
+    "hash": "0a4290f3c482bb41",
+    "file": "candidates/c005.extxyz",
+    "n_atoms": 597,
+    "roles": {
+     "substrate": 567,
+     "passivant": 30
+    },
+    "substrate_identical": true
+   },
+   {
+    "id": "c006",
+    "attempt": 7,
+    "seed": 0,
+    "operator": "random_init",
+    "parents": [],
+    "genes": [
+     {
+      "site_id": "bottom-Pb518",
+      "mode_id": "flat",
+      "conformer_id": "c0",
+      "azimuth_deg": 30.0,
+      "tilt_deg": 0.0
+     },
+     {
+      "site_id": "bottom-Pb520",
+      "mode_id": "flat",
+      "conformer_id": "c0",
+      "azimuth_deg": 0.0,
+      "tilt_deg": 0.0
+     }
+    ],
+    "validity": {
+     "mol1_height_A": [
+      2.99,
+      3.28
+     ],
+     "mol2_height_A": [
+      2.99,
+      3.28
+     ]
+    },
+    "key": "(('bottom-Pb513', 'flat', 'c0', 0, 0), ('bottom-Pb520', 'flat', 'c0', 2, 0))",
+    "hash": "b2094d417fd1e9bc",
+    "file": "candidates/c006.extxyz",
+    "n_atoms": 597,
+    "roles": {
+     "substrate": 567,
+     "passivant": 30
+    },
+    "substrate_identical": true
+   },
+   {
+    "id": "c007",
+    "attempt": 8,
+    "seed": 0,
+    "operator": "random_init",
+    "parents": [],
+    "genes": [
+     {
+      "site_id": "bottom-Pb517",
+      "mode_id": "amineN_endon",
+      "conformer_id": "c0",
+      "azimuth_deg": 120.0,
+      "tilt_deg": 0.0
+     },
+     {
+      "site_id": "bottom-Pb519",
+      "mode_id": "amineN_endon",
+      "conformer_id": "c0",
+      "azimuth_deg": 150.0,
+      "tilt_deg": 30.0
+     }
+    ],
+    "validity": {
+     "mol1_anchor_A": 2.7,
+     "mol1_height_A": [
+      1.89,
+      7.53
+     ],
+     "mol2_anchor_A": 2.7,
+     "mol2_height_A": [
+      1.7,
+      7.72
+     ]
+    },
+    "key": "(('bottom-Pb513', 'amineN_endon', 'c0', 8, 0), ('bottom-Pb518', 'amineN_endon', 'c0', 10, 2))",
+    "hash": "6034e3ef4ee4d903",
+    "file": "candidates/c007.extxyz",
+    "n_atoms": 597,
+    "roles": {
+     "substrate": 567,
+     "passivant": 30
+    },
+    "substrate_identical": true
+   },
+   {
+    "id": "c008",
+    "attempt": 9,
+    "seed": 0,
+    "operator": "random_init",
+    "parents": [],
+    "genes": [
+     {
+      "site_id": "bottom-Pb520",
+      "mode_id": "amineN_endon",
+      "conformer_id": "c0",
+      "azimuth_deg": 120.0,
+      "tilt_deg": 30.0
+     },
+     {
+      "site_id": "bottom-Pb513",
+      "mode_id": "amineN_endon",
+      "conformer_id": "c0",
+      "azimuth_deg": 90.0,
+      "tilt_deg": 0.0
+     }
+    ],
+    "validity": {
+     "mol1_anchor_A": 2.7,
+     "mol1_height_A": [
+      1.7,
+      7.72
+     ],
+     "mol2_anchor_A": 2.7,
+     "mol2_height_A": [
+      1.89,
+      7.53
+     ]
+    },
+    "key": "(('bottom-Pb513', 'amineN_endon', 'c0', 6, 0), ('bottom-Pb520', 'amineN_endon', 'c0', 8, 2))",
+    "hash": "49afd42fedcde6c7",
+    "file": "candidates/c008.extxyz",
+    "n_atoms": 597,
+    "roles": {
+     "substrate": 567,
+     "passivant": 30
+    },
+    "substrate_identical": true
+   },
+   {
+    "id": "c009",
+    "attempt": 11,
+    "seed": 0,
+    "operator": "random_init",
+    "parents": [],
+    "genes": [
+     {
+      "site_id": "bottom-Pb514",
+      "mode_id": "ringN_endon",
+      "conformer_id": "c0",
+      "azimuth_deg": 30.0,
+      "tilt_deg": 15.0
+     },
+     {
+      "site_id": "bottom-Pb519",
+      "mode_id": "flat",
+      "conformer_id": "c0",
+      "azimuth_deg": 30.0,
+      "tilt_deg": 0.0
+     }
+    ],
+    "validity": {
+     "mol1_anchor_A": 2.6,
+     "mol1_height_A": [
+      0.93,
+      6.95
+     ],
+     "mol2_height_A": [
+      2.99,
+      3.28
+     ]
+    },
+    "key": "(('bottom-Pb513', 'flat', 'c0', 2, 0), ('bottom-Pb517', 'ringN_endon', 'c0', 2, 1))",
+    "hash": "add4aa8919af5cea",
+    "file": "candidates/c009.extxyz",
+    "n_atoms": 597,
+    "roles": {
+     "substrate": 567,
+     "passivant": 30
+    },
+    "substrate_identical": true
+   },
+   {
+    "id": "c010",
+    "attempt": 12,
+    "seed": 0,
+    "operator": "random_init",
+    "parents": [],
+    "genes": [
+     {
+      "site_id": "bottom-Pb515",
+      "mode_id": "flat",
+      "conformer_id": "c0",
+      "azimuth_deg": 90.0,
+      "tilt_deg": 0.0
+     },
+     {
+      "site_id": "bottom-Pb519",
+      "mode_id": "ringN_endon",
+      "conformer_id": "c0",
+      "azimuth_deg": 0.0,
+      "tilt_deg": 30.0
+     }
+    ],
+    "validity": {
+     "mol1_height_A": [
+      2.99,
+      3.28
+     ],
+     "mol2_anchor_A": 2.6,
+     "mol2_height_A": [
+      0.49,
+      6.71
+     ]
+    },
+    "key": "(('bottom-Pb513', 'flat', 'c0', 6, 0), ('bottom-Pb520', 'ringN_endon', 'c0', 0, 2))",
+    "hash": "0f1005e09a4816d5",
+    "file": "candidates/c010.extxyz",
+    "n_atoms": 597,
+    "roles": {
+     "substrate": 567,
+     "passivant": 30
+    },
+    "substrate_identical": true
+   },
+   {
+    "id": "c011",
+    "attempt": 13,
+    "seed": 0,
+    "operator": "random_init",
+    "parents": [],
+    "genes": [
+     {
+      "site_id": "bottom-Pb518",
+      "mode_id": "flat",
+      "conformer_id": "c0",
+      "azimuth_deg": 30.0,
+      "tilt_deg": 0.0
+     },
+     {
+      "site_id": "bottom-Pb515",
+      "mode_id": "flat",
+      "conformer_id": "c0",
+      "azimuth_deg": 90.0,
+      "tilt_deg": 0.0
+     }
+    ],
+    "validity": {
+     "mol1_height_A": [
+      2.99,
+      3.28
+     ],
+     "mol2_height_A": [
+      2.99,
+      3.28
+     ]
+    },
+    "key": "(('bottom-Pb513', 'flat', 'c0', 2, 0), ('bottom-Pb519', 'flat', 'c0', 6, 0))",
+    "hash": "8d0846b0801257ab",
+    "file": "candidates/c011.extxyz",
+    "n_atoms": 597,
+    "roles": {
+     "substrate": 567,
+     "passivant": 30
+    },
+    "substrate_identical": true
+   }
+  ]
+ },
+ "evaluated": false
+}
