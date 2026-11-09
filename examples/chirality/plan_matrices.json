@@ -4,7 +4,8 @@
  "date": "2026-11-08",
  "electronic_structure_profile": {
   "label_target": "r2SCAN+D3(BJ), the project label profile (same INCAR family as data/prerelax_a0/dataset_v2: METAGGA=R2SCAN, IVDW=12, VDW_S8=0.7898, VDW_A1=0.4948, VDW_A2=5.7308, ENCUT=520, PREC=Accurate, LASPH=.TRUE., ISMEAR=0, SIGMA=0.05)",
-  "differences_from_slab_profile": "bulk cells: no LDIPOL/IDIPOL; k-mesh from convergence step D0; ISYM=0 for the mirror-pair check",
+  "differences_from_slab_profile": "bulk cells: no LDIPOL/IDIPOL; ISYM=0; LREAL=.FALSE. (package 108: LREAL=Auto put up to 28 meV/A on I); k-mesh 3x3x1 (R) / 3x3x2 (rac) from D0a",
+  "accepted_residual": "C/H/N forces change up to ~12 meV/A with ENCUT 520-700 at LREAL=.FALSE. (non-monotonic); I/Pb <= 1.7 meV/A. Owner-accepted 2026-11-09",
   "SOC": "off for structural sampling; SOC on/off force comparison on 3 frames (D0c) decides whether that is acceptable",
   "never_mix_with": ["HYDRA SCAN-rVV10 labels", "legacy PBE spreadsheet values", "Pols et al. SCAN values (reference only)"]
  },

@@ -147,3 +147,22 @@ def test_diag_mode_lreal_encut_statics(starts, tmp_path):
     d0 = tmp_path / "pkg_d0"
     P.stage(dict(CFG), starts, d0)
     assert (out / "inputs/R_e700/static/POSCAR").read_bytes() == (d0 / "inputs/R_kref/static/POSCAR").read_bytes()
+
+
+def test_d1_mode_is_105_relax_static_with_lreal_false(starts, tmp_path):
+    d0, d1 = tmp_path / "pkg_d0", tmp_path / "pkg_d1"
+    P.stage(dict(CFG), starts, d0)
+    P.stage(dict(CFG), starts, d1, mode="d1")
+    assert sorted(f.name for f in d1.glob("*.slurm")) == ["run_relax.slurm", "run_static.slurm"]
+    for arr in ("relax", "static"):
+        assert (d1 / "lists" / f"{arr}.txt").read_bytes() == (d0 / "lists" / f"{arr}.txt").read_bytes()
+    n = 0
+    for inc in (d1 / "inputs").rglob("INCAR"):
+        rel = inc.relative_to(d1)
+        t1, t0 = _incar(inc), _incar(d0 / rel)
+        assert t1["LREAL"] == ".FALSE." and t0["LREAL"] == "Auto"
+        assert {k: v for k, v in t1.items() if k != "LREAL"} == {k: v for k, v in t0.items() if k != "LREAL"}
+        for f in ("POSCAR", "KPOINTS", "POTCAR.names", "EXE"):
+            assert (inc.parent / f).read_bytes() == (d0 / rel.parent / f).read_bytes()
+        n += 1
+    assert n == 8

@@ -96,6 +96,12 @@ reasons are in §9.
     - By the pre-set 5 meV/Å rule the analyzer returns "unresolved". 105 relax/static stay held (receipt: desk ledger
       `2e10f6b`). The owner's decision is pending: accept 520 + `LREAL = .FALSE.` with a ~12 meV/Å tolerance on C/H/N,
       or run a further grid check (e.g. `ADDGRID`, 800 eV).
+    - **Decision 2026-11-09** (owner: "Yes, regenerate"): 520 eV + `LREAL = .FALSE.`. The accepted residual on C/H/N
+      is ~12 meV/Å, recorded as the D1 tolerance.
+    - Revision 1 of 105's relax/static is staged, not submitted: `LONI_staging/chiral_d1_vasp_mba2pbi4_relax_rev1`,
+      hand-off `HANDOFF_TO_DISPATCH_105_REV1.md`, `prepare_chirality_d0.py stage --mode d1`.
+    - Only `LREAL` differs from 105. The starts are byte-identical to the 105 runs. Mock run 8/8 DONE.
+    - Estimated 19–67 node-h.
 
 ## 1. Hypothesis under test
 

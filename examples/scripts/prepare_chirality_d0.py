@@ -142,6 +142,17 @@ def build_diag_jobs(starts: dict, kspacing: float):
             ("diag", "R_e700", "static", "static", "R", {**st, "ENCUT": 700}, kR, "")]
 
 
+def build_d1_jobs(starts: dict, kspacing: float, encut: int, encut_factor: float):
+    """Revision 1 of package 105's held relax/static arrays (owner: "Yes, regenerate", 2026-11-09).
+
+    Package 108 traced the iodide force error to LREAL=Auto; with LREAL=.FALSE. the Pb/I forces are converged at
+    520 eV (<= 1.7 meV/A). Same jobs, starts and meshes as 105, with LREAL=.FALSE. in every INCAR. The accepted
+    residual on C/H/N is ~12 meV/A (ENCUT-dependent, non-monotonic; see docs/CHIRALITY_FEASIBILITY.md)."""
+    return [(arr, job, step, kind, key, {**over, "LREAL": ".FALSE."}, k, geo)
+            for arr, job, step, kind, key, over, k, geo in build_jobs(starts, kspacing, encut, encut_factor)
+            if arr in ("relax", "static")]
+
+
 def walltime_s(t: str) -> int:
     """Slurm walltime 'D-HH:MM:SS', 'HH:MM:SS' or 'MM:SS' -> seconds."""
     days, _, hms = t.rpartition("-")
@@ -178,8 +189,9 @@ def stage(cfg: dict, starts_dir: Path, out: Path, overwrite: bool = False, mode:
         raise SystemExit("mirror still has R centres")
     defs = potcar_defs(Path(cfg.get("potcar_defs", ROOT / "src" / "pvpassivator" / "data" / "POTCAR_DEFS.txt")))
     cl = cfg["cluster"]
-    jobs = (build_jobs(starts, cfg["kspacing"], cfg["encut"], cfg["encut_factor"]) if mode == "d0"
-            else build_diag_jobs(starts, cfg["kspacing"]))
+    jobs = {"d0": lambda: build_jobs(starts, cfg["kspacing"], cfg["encut"], cfg["encut_factor"]),
+            "diag": lambda: build_diag_jobs(starts, cfg["kspacing"]),
+            "d1": lambda: build_d1_jobs(starts, cfg["kspacing"], cfg["encut"], cfg["encut_factor"])}[mode]()
     lists = {}
     manifest = {"title": cfg["title"], "physics": PHYSICS, "soc_tags": SOC_TAGS, "jobs": [], "starts": {},
                 "settle": settle_rep}
@@ -274,7 +286,8 @@ def main(argv=None) -> int:
     s2.add_argument("--starts", type=Path, default=ROOT / "data" / "cache" / "chirality_d0_start")
     s2.add_argument("--out", type=Path, required=True)
     s2.add_argument("--overwrite", action="store_true")
-    s2.add_argument("--mode", choices=("d0", "diag"), default="d0", help="diag: the D0e LREAL/ENCUT statics only")
+    s2.add_argument("--mode", choices=("d0", "diag", "d1"), default="d0",
+                    help="diag: the D0e LREAL/ENCUT statics only; d1: 105 relax/static revision 1 (LREAL=.FALSE.)")
     a = ap.parse_args(argv)
     if a.cmd == "settle-h":
         rep = settle_h(a.out, device=a.device)
