@@ -664,13 +664,21 @@ class SyntheticEvaluator:
 class AseRelaxEvaluator:
     """Relax with any ASE calculator under one fixed protocol; counts energy/force calls.
 
-    Mobile atoms: the molecules and every substrate atom within ``radius`` A of them, molecules
-    whole (``mobile="local"``), or the molecules only (``"passivant"``); the rest is fixed, so the
-    slab constraint rule is the same for every candidate of every arm."""
+    Mobile atoms (lattice molecules always whole), the rest fixed at the bare-slab positions:
+      "face"       the molecules + every substrate atom within ``radius`` A (along the normal) of the
+                   outer inorganic layer of the searched face.  The fixed set is the SAME ATOMS for
+                   every candidate, which a fixed-composition ranking needs; needs ``space``.
+      "local"      the molecules + every substrate atom within ``radius`` A of them.  Cheaper, but the
+                   fixed set depends on where the molecules sit, so energies of different arrangements
+                   are minima under different constraints: use for settling, not for ranking.
+      "passivant"  the molecules only."""
 
-    def __init__(self, calc, fmax: float = 0.1, steps: int = 150, radius: float = 8.0, mobile: str = "local",
-                 protocol: dict | None = None):
+    def __init__(self, calc, fmax: float = 0.1, steps: int = 150, radius: float = 8.0, mobile: str = "face",
+                 protocol: dict | None = None, space: "SearchSpace | None" = None):
+        if mobile == "face" and space is None:
+            raise ValueError('mobile="face" needs the SearchSpace')
         self.calc, self.fmax, self.steps, self.radius, self.mobile = calc, fmax, steps, radius, mobile
+        self.space = space
         self.protocol = {"optimizer": "FIRE", "fmax_eV_A": fmax, "max_steps": steps, "mobile": mobile,
                          "radius_A": radius, **(protocol or {})}
 
@@ -678,6 +686,20 @@ class AseRelaxEvaluator:
         ads = atoms.arrays["mol_id"] > 0
         if self.mobile == "passivant":
             return ads
+        if self.mobile == "face":
+            sp = self.space
+            n = len(sp.substrate)
+            h = unwrap_along(sp.substrate, sp.rec.normal_axis)
+            depth = (sp.rec.faces[sp.face]["edge_coordinate_A"] - h) * (1 if sp.face == "top" else -1)
+            mob = ads.copy()
+            order = {int(i): k for k, i in enumerate(atoms.arrays["atom_id"])}
+            idx = np.array([order[int(i)] for i in sp.substrate.arrays["atom_id"]])
+            mob[idx] = depth <= self.radius
+            fid = atoms.arrays["fragment_id"]
+            for f in np.unique(fid[mob]):
+                mob[fid == f] = True
+            assert n == len(idx)
+            return mob
         d = min_image_distances(atoms.cell.array, atoms.pbc, atoms.positions, atoms.positions[ads]).min(axis=1)
         mob = d <= self.radius
         fid = atoms.arrays["fragment_id"]

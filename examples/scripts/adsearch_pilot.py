@@ -198,7 +198,7 @@ def bench(cfg, out: Path, evaluator: str, budget: int, seeds: list[int], n_init:
         rx = b.get("relax", {})
         ev = A.AseRelaxEvaluator(make_calc(Path(model), device), fmax=rx.get("fmax_eV_A", 0.1),
                                  steps=steps or rx.get("max_steps", 150), radius=rx.get("radius_A", 8.0),
-                                 mobile=rx.get("mobile", "local"))
+                                 mobile=rx.get("mobile", "face"), space=space)
         h = hashlib.sha256(Path(model).read_bytes()).hexdigest()[:16]
         prov["evaluator"] = {"kind": "mace+d3", "model": str(model), "model_sha256_16": h, "device": device,
                              "dtype": "float64 (MACE), float32 (D3)", "d3": "BJ, xc=r2scan (torch-dftd)",

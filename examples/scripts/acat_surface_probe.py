@@ -49,18 +49,24 @@ def main(argv=None):
     ap.add_argument("--complex", dest="complex_", default=None)
     ap.add_argument("--out", required=True)
     ap.add_argument("--step", default=None, help="internal: run one step and print its JSON")
+    ap.add_argument("--n-layers", type=int, default=None, help="n_layers for the Pb-only representation (other representations: ACAT auto-detects)")
     ap.add_argument("--step-timeout", type=float, default=300.0, help="seconds allowed per ACAT step")
     a = ap.parse_args(argv)
     if a.step is None:
         return _drive(a)
 
     import ase
+    shims = []
+    if not hasattr(np, "in1d"):          # removed in NumPy 2.4; ACAT 2.0.3 still calls it
+        np.in1d = np.isin
+        shims.append("numpy.in1d -> numpy.isin")
     import acat
     from acat.settings import CustomSurface, adsorbate_elements
     from acat.adsorption_sites import SlabAdsorptionSites
     from acat.adsorbate_coverage import SlabAdsorbateCoverage
     rep = {"schema": "acat_probe/1", "versions": {"acat": getattr(acat, "__version__", "?"), "ase": ase.__version__,
-                                                  "python": sys.version.split()[0]},
+                                                  "python": sys.version.split()[0], "numpy": np.__version__},
+           "shims_applied": shims,
            "acat_adsorbate_elements": list(adsorbate_elements)}
     try:
         import asap3  # noqa: F401
@@ -96,7 +102,7 @@ def main(argv=None):
         sub = slab[np.where(keep)[0]]
 
         def run():
-            cs = CustomSurface(sub, n_layers=None)
+            cs = CustomSurface(sub, n_layers=a.n_layers if label == "Pb_only" else None)
             sas = SlabAdsorptionSites(sub, surface=cs, both_sides=False)
             sl = sas.get_sites()
             kinds = {}
@@ -110,12 +116,13 @@ def main(argv=None):
                 for p in native_xy:
                     d = (top - p) @ inv
                     d[:, :2] -= np.round(d[:, :2])
-                    hit += int(np.linalg.norm(d @ slab.cell.array, axis=1).min() < 0.5)
+                    hit += int(np.linalg.norm((d @ slab.cell.array)[:, :2], axis=1).min() < 0.5)   # in-plane only
             return {"n_layers_detected": cs.n_layers, "n_surface_atoms": len(sas.surf_ids),
                     "surface_elements": {s: int(sum(sub[i].symbol == s for i in sas.surf_ids))
                                          for s in sorted({sub[i].symbol for i in sas.surf_ids})},
                     "n_sites": len(sl), "site_kinds": kinds,
-                    "native_Pb_sites_with_acat_ontop": hit, "native_Pb_sites": len(native)}
+                    "native_Pb_sites_with_acat_ontop": hit, "native_Pb_sites": len(native),
+                    "n_layers_given": a.n_layers if label == "Pb_only" else None}
         rep[f"sites_{label}"] = {"n_atoms_given": int(keep.sum()), **attempt(run)}
 
     if a.step == "sites_all_atoms":
@@ -192,7 +199,7 @@ def _drive(a):
     import subprocess
     rep = {}
     for step in STEPS:
-        cmd = [sys.executable, __file__, a.slab, "--out", a.out, "--step", step] +               (["--complex", a.complex_] if a.complex_ else [])
+        cmd = [sys.executable, __file__, a.slab, "--out", a.out, "--step", step] +               (["--complex", a.complex_] if a.complex_ else []) +               (["--n-layers", str(a.n_layers)] if a.n_layers else [])
         t = time.time()
         try:
             p = subprocess.run(cmd, capture_output=True, text=True, timeout=a.step_timeout)

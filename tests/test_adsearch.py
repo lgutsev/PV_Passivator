@@ -307,7 +307,14 @@ def test_relax_evaluator_fixes_far_field_and_counts_calls(space):
     genes = (g(space, 0), g(space, 4))
     atoms, _, _ = space.build(genes)
     target = atoms.positions + 0.2 * space.n_out
-    ev = A.AseRelaxEvaluator(Spring(target), fmax=0.01, steps=200, radius=4.0)
+    ev = A.AseRelaxEvaluator(Spring(target), fmax=0.01, steps=200, radius=4.0, mobile="local")
+    face = A.AseRelaxEvaluator(Spring(target), radius=4.0, mobile="face", space=space)
+    other, _, _ = space.build((g(space, 2), g(space, 7, "N_high")))
+    sub_ids = lambda a, m: set(a.arrays["atom_id"][m & (a.arrays["mol_id"] == 0)].tolist())
+    assert sub_ids(atoms, face.mobile_mask(atoms)) == sub_ids(other, face.mobile_mask(other)) != set()   # same fixed set
+    assert sub_ids(atoms, ev.mobile_mask(atoms)) != sub_ids(other, ev.mobile_mask(other))               # "local" is not
+    with pytest.raises(ValueError):
+        A.AseRelaxEvaluator(Spring(target), mobile="face")
     mob = ev.mobile_mask(atoms)
     assert mob[atoms.arrays["mol_id"] > 0].all() and 0 < mob.sum() < len(atoms)
     fid = atoms.arrays["fragment_id"]
