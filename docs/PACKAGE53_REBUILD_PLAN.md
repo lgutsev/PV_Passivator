@@ -123,6 +123,9 @@
   - PFPACl's 5.1 segment had already ended at walltime.
   - All nine 5.1 complexes are in `outputs_rev5/`, which is in `export.list` (desk 8161e48). `runs_rev5/` stays on LONI.
   - The statics (1–11) and the k-check go in after the relaxes are DONE or ACCEPTED.
+- **Revision 5.1 frames received (2026-11-08):** `D:\MLIP_Work_Folder\hpc_smoke_tests\53_vasp_pvpass_r2scan_eads_v1\outputs_rev5\complex_<X>\{relax,static}` (678 MB; a hand-made tar from the desk).
+  - **Relax steps:** 275–312 per complex. PFPACl ran 606 steps and is unfinished (WALLTIME_STOP). TFPAI ran 496 and is ACCEPTED.
+  - **Use:** training frames only (free relax, far field off the slab), never labels.
 - Seven complex inputs change (new structure hashes), and `kcheck_complex_PEAAc` follows the rebuilt PEAAc.
 - The revision-4 outputs of the seven move to `outputs_rev4/` and stay training frames; nothing is deleted.
 - Generate with commit a8442ac or later, with `signal_margin_s: 3600` for `relax_slab`.
