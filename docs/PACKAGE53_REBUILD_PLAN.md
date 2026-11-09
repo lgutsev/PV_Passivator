@@ -126,6 +126,9 @@
 - **Revision 5.1 frames received (2026-11-08):** `D:\MLIP_Work_Folder\hpc_smoke_tests\53_vasp_pvpass_r2scan_eads_v1\outputs_rev5\complex_<X>\{relax,static}` (678 MB; a hand-made tar from the desk).
   - **Relax steps:** 275–312 per complex. PFPACl ran 606 steps and is unfinished (WALLTIME_STOP). TFPAI ran 496 and is ACCEPTED.
   - **Use:** training frames only (free relax, far field off the slab), never labels.
+- **First A4 relax done (2026-11-09):** `complex_PEAI` (R = 10 Å) reached required accuracy in 97 ionic steps, E0 −7269.6569 eV, against 294 steps for its free 5.1 relax.
+  - At ~1 node-h per step, that points to the low end of the 600–3400 node-h estimate.
+  - Tasks 1, 2, 4, 5 and 6 are running (~1.6 days in); tasks 7–11 are queued.
 - Seven complex inputs change (new structure hashes), and `kcheck_complex_PEAAc` follows the rebuilt PEAAc.
 - The revision-4 outputs of the seven move to `outputs_rev4/` and stay training frames; nothing is deleted.
 - Generate with commit a8442ac or later, with `signal_margin_s: 3600` for `relax_slab`.
