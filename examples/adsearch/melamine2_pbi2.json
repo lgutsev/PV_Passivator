@@ -1,0 +1,34 @@
+{
+ "_status": "Pilot definition for the adsorption-arrangement search (docs/acat_feasibility.md). Preparation only: no DFT label exists for this system in the target profile.",
+ "name": "melamine2_on_PbI2",
+ "slab": {
+  "path": "C:/Users/lguts/OneDrive/Desktop/Research/2026/Perovskites/GIEC_Projects/VASP/SCAN/PbI2_Surf_335_SCAN/FAPI_333_x_PbI2_Surf/CONTCAR",
+  "note": "neutral PbI2-terminated alpha-FAPbI3 (100) 3x3 slab, r2SCAN+D3(BJ), ISIF=4 archive relax (57 ionic steps < NSW); the slab of label set v3b",
+  "face": "bottom",
+  "site_kind": "undercoordinated_Pb"
+ },
+ "molecule": {
+  "name": "melamine",
+  "from_complex": "data/cache/X_OutPackLite_PbI2_Surf_335_PBE_Mar15_2025/X_OutPackLite_PbI2_Surf_335_PBE_Mar15_2025/FAPI_333_x_PbI2_Surf_Mel/CONTCAR",
+  "from_complex_slab": "data/cache/X_OutPackLite_PbI2_Surf_335_PBE_Mar15_2025/X_OutPackLite_PbI2_Surf_335_PBE_Mar15_2025/FAPI_333_x_PbI2_Surf_2683/CONTCAR",
+  "note": "geometry cut from the legacy PBE+D3 complex (starting geometry only); neutral closed-shell C3H6N6, achiral, no counterion",
+  "total_charge": 0,
+  "multiplicity": 1,
+  "chemical_form": "neutral_donor"
+ },
+ "modes": [
+  {"mode_id": "ringN_endon", "anchor": {"element": "N", "bonded_H": 0}, "height": 2.6, "up": "anchor_to_centroid",
+   "tilts": [0, 15, 30], "anchor_window": [2.3, 3.2],
+   "description": "triazine ring N dative to 5-coordinate Pb, ring plane upright; the motif of the legacy Mel/MelMel complexes (N-Pb 2.58-2.69 A)"},
+  {"mode_id": "amineN_endon", "anchor": {"element": "N", "bonded_H": 2}, "height": 2.7, "up": "anchor_to_centroid",
+   "tilts": [0, 15, 30], "anchor_window": [2.3, 3.3],
+   "description": "amine N toward Pb, ring plane upright"},
+  {"mode_id": "flat", "anchor": "centroid", "height": 3.4, "up": "plane_normal", "tilts": [0], "azimuth_period": 120,
+   "description": "ring flat over Pb, N-H...I contacts; seen for the second molecule of legacy MelMel (N-Pb 3.66 A)"}
+ ],
+ "n_molecules": 2,
+ "azimuth_step": 30,
+ "symmetry": "site_lattice",
+ "benchmark": {"budget_attempts": 200, "seeds": [0, 1, 2], "n_init": 20, "pop_size": 10, "dup_tol_A": 0.5,
+               "relax": {"optimizer": "FIRE", "fmax_eV_A": 0.1, "max_steps": 150, "mobile": "local", "radius_A": 8.0}}
+}
