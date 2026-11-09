@@ -78,6 +78,24 @@ reasons are in §9.
       commit `48df5cd`; all 27 hashes match) and released to the owner for submission.
     - The export will be read with `analyze_chirality_d0.py <105 dir> --diag <108 dir>`. That compares all six R
       statics and returns the cause (LREAL, basis or unresolved) and the setting for the regenerated relax/static.
+  - **D0e results [M] (package 108 against 105's baselines; max per-atom force difference, meV/Å):**
+
+    | Pair | max | I | Pb | C | H | N |
+    |---|---|---|---|---|---|---|
+    | `LREAL = .FALSE.` 520 vs 600 | 5.1 | 1.1 | 0.3 | 5.1 | 4.8 | 1.6 |
+    | `LREAL = .FALSE.` 600 vs 700 | 10.0 | 0.7 | 0.4 | 7.8 | 5.9 | 10.0 |
+    | `LREAL = .FALSE.` 520 vs 700 | 11.2 | 1.7 | 0.6 | 10.3 | 10.5 | 11.2 |
+    | Auto vs `.FALSE.`, 520 | 11.5 | 4.4 | 4.6 | 11.5 | 0.4 | 0.7 |
+    | Auto vs `.FALSE.`, 600 | 28.0 | 28.0 | 2.1 | 3.1 | 0.2 | 0.5 |
+    | Auto vs `.FALSE.`, 700 | 8.3 | 8.3 | 2.5 | 1.6 | 0.9 | 2.0 |
+
+    - **The iodide error is `LREAL = Auto`.** With `.FALSE.`, the framework atoms (I, Pb) are converged at
+      520 eV to ≤ 1.7 meV/Å.
+    - The organic atoms still change by 5–11 meV/Å with ENCUT, and the change grows from 520→600 to 600→700. That
+      is not a converging basis; r2SCAN grid noise is the likely cause [I].
+    - By the pre-set 5 meV/Å rule the analyzer returns "unresolved". 105 relax/static stay held (receipt: desk ledger
+      `2e10f6b`). The owner's decision is pending: accept 520 + `LREAL = .FALSE.` with a ~12 meV/Å tolerance on C/H/N,
+      or run a further grid check (e.g. `ADDGRID`, 800 eV).
 
 ## 1. Hypothesis under test
 
