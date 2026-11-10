@@ -147,6 +147,22 @@ reasons are in §9.
     finite-T frames (D8), and a held-out D9.
   - Measured cost changes the estimate: a 188-atom R static at 520 eV with `LREAL = .FALSE.` takes ~12 min on one
     node, so the ~330 single points of D3–D9 are ≈ 70–100 node-h rather than the 100–330 inferred earlier.
+- **Label tranche A staged 2026-11-10** (owner: "Yes, stage it"), not submitted: `LONI_staging/chiral_labels_a_vasp_mba2pbi4`,
+  hand-off `HANDOFF_TO_DISPATCH_chiral_labels_a.md`, generator `examples/scripts/prepare_chirality_labels.py`
+  (tests: `tests/test_chirality_labels.py`).
+  - 62 single points on the 105 rev1 fixed-cell minima, same profile (520 eV, `LREAL = .FALSE.`, `ISYM = 0`):
+
+    | Block | Points |
+    |---|---|
+    | D3 NH₃⁺ rotor | 26 |
+    | D4 ring torsion | 9 (11 rigid-rotation points dropped for contacts < 1.5 Å; the kept ones cover ±20° libration around 0° and 180°, plus R at 80°) |
+    | D5 methyl rotor | 7 |
+    | D6 Pb/I displacements | 12 (a substitute for symmetry-adapted tilt patterns) |
+    | D7 in-plane strain | 8 |
+
+  - About 12–20 node-h. Mock run 62/62 DONE.
+  - Not in this tranche: D8 finite-T frames and the D9 held-out set. They need local pre-relaxer MD frames: about
+    6 runs × 2–3 h on the laptop GPU, which needs the owner's OK under the no-long-GPU-jobs rule.
 
 ## 1. Hypothesis under test
 

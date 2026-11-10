@@ -174,29 +174,37 @@ def signal_margin(st: dict) -> int:
     return s
 
 
-def stage(cfg: dict, starts_dir: Path, out: Path, overwrite: bool = False, mode: str = "d0") -> dict:
+def stage(cfg: dict, starts_dir: Path | None, out: Path, overwrite: bool = False, mode: str = "d0",
+          structures: dict | None = None, jobs: list | None = None, provenance: dict | None = None) -> dict:
+    """Write a package. With ``structures`` + ``jobs`` (label tranches), those are written as given and
+    ``starts_dir``/``mode`` are ignored; ``provenance`` replaces the settle report in the manifest."""
     from prepare_bulk_refs import incar_text, ordered, potcar_defs
     from stage_label_set import LIB, SLURM, lf
     if out.exists() and any(out.iterdir()) and not overwrite:
         raise SystemExit(f"{out} is not empty")
     pkg = out.name
-    starts = {k: read(starts_dir / f"POSCAR_{k}", format="vasp") for k in ("R", "rac")}
-    settle_rep = json.loads((starts_dir / "settle.json").read_text())
-    if any(settle_rep[k]["status"] != "pass" for k in ("R", "rac")):
-        raise SystemExit("settle-h did not pass for every structure; see settle.json")
-    starts["Rmirror"] = ch.invert(starts["R"])
-    if descriptors(starts["Rmirror"])["stereocentres"]["R"] != 0:
-        raise SystemExit("mirror still has R centres")
+    if structures is not None:
+        starts, settle_rep = dict(structures), provenance or {}
+    else:
+        starts = {k: read(starts_dir / f"POSCAR_{k}", format="vasp") for k in ("R", "rac")}
+        settle_rep = json.loads((starts_dir / "settle.json").read_text())
+        if any(settle_rep[k]["status"] != "pass" for k in ("R", "rac")):
+            raise SystemExit("settle-h did not pass for every structure; see settle.json")
+        starts["Rmirror"] = ch.invert(starts["R"])
+        if descriptors(starts["Rmirror"])["stereocentres"]["R"] != 0:
+            raise SystemExit("mirror still has R centres")
     defs = potcar_defs(Path(cfg.get("potcar_defs", ROOT / "src" / "pvpassivator" / "data" / "POTCAR_DEFS.txt")))
     cl = cfg["cluster"]
-    jobs = {"d0": lambda: build_jobs(starts, cfg["kspacing"], cfg["encut"], cfg["encut_factor"]),
-            "diag": lambda: build_diag_jobs(starts, cfg["kspacing"]),
-            "d1": lambda: build_d1_jobs(starts, cfg["kspacing"], cfg["encut"], cfg["encut_factor"])}[mode]()
+    if jobs is None:
+        jobs = {"d0": lambda: build_jobs(starts, cfg["kspacing"], cfg["encut"], cfg["encut_factor"]),
+                "diag": lambda: build_diag_jobs(starts, cfg["kspacing"]),
+                "d1": lambda: build_d1_jobs(starts, cfg["kspacing"], cfg["encut"], cfg["encut_factor"])}[mode]()
     lists = {}
     manifest = {"title": cfg["title"], "physics": PHYSICS, "soc_tags": SOC_TAGS, "jobs": [], "starts": {},
                 "settle": settle_rep}
     for key, at in starts.items():
-        manifest["starts"][key] = {"formula": at.get_chemical_formula(), "natoms": len(at), **descriptors(at)}
+        manifest["starts"][key] = {"formula": at.get_chemical_formula(), "natoms": len(at),
+                                   **(descriptors(at) if structures is None else {})}
     for arr, job, step, kind, key, over, k, geo in jobs:
         d = out / "inputs" / job / step
         d.mkdir(parents=True, exist_ok=True)
@@ -231,6 +239,8 @@ def stage(cfg: dict, starts_dir: Path, out: Path, overwrite: bool = False, mode:
         "static": ("D1 production statics on relaxed geometries",
                    row.format(L="static") + 'run_step "$job" static static "$geo"', True),
         "diag": ("D0e LREAL/ENCUT diagnostic statics on R", row.format(L="diag") + 'run_step "$job" static static', True),
+        "labels": ("label statics (scans, distortions, strain) on the DFT minima",
+                   row.format(L="labels") + 'run_step "$job" static static', True),
     }
     bodies = {k: v for k, v in bodies.items() if k in lists}
     for arr, (purpose, body, is_array) in bodies.items():
@@ -251,7 +261,8 @@ def stage(cfg: dict, starts_dir: Path, out: Path, overwrite: bool = False, mode:
     notes = {"smoke": "check outputs/smoke/static/timing.txt", "check": "report LOOP+ timings and energies before going on",
              "soc": "needs vasp_ncl in the module; independent of check", "relax": "only after check is reviewed; resubmit "
              "tasks that hit the walltime (continues from CONTCAR)", "static": "after the relaxes are DONE",
-             "diag": "compare with package 105 R_kref / R_kref_e600 (same start and mesh)"}
+             "diag": "compare with package 105 R_kref / R_kref_e600 (same start and mesh)",
+             "labels": "independent single points; resubmit any task that fails SCF once, then report it"}
     for arr in bodies:
         st = cl["stages"].get(arr, cl["stages"]["check"])
         n = len(lists[arr])
