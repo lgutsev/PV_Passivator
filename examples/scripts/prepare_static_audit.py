@@ -112,7 +112,8 @@ def prepare(pool: Path, out: Path, cfg: dict, overwrite: bool) -> dict:
     man["notes"] += [
         "Statics only: every POSCAR is the geometry at which the model energy and forces were stored. Nothing relaxes.",
         "LREAL = .FALSE. (force audit); do not combine these energies with label sets run with LREAL = Auto.",
-        "The slab is the archived r2SCAN slab mapped onto the common cell, not a slab relaxed in that cell: these are "
+        "The slab is the archived r2SCAN slab mapped onto the common cell (face region then relaxed with the audited "
+        "MODEL, if the pool's provenance has slab_prerelax), not a slab relaxed with DFT in that cell: these are "
         "model-audit data, not adsorption-energy labels.",
         "ref_molecule is the molecule at its start geometry in a vacuum box; with 'slab' it gives fixed-geometry "
         "interaction energies for model-vs-DFT comparison only.",

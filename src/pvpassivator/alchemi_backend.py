@@ -56,7 +56,8 @@ def load_mace(path: str, device: str = "cuda", dtype: str = "float64"):
     import torch
     from nvalchemi.models.mace import MACEWrapper
     model = torch.load(str(path), weights_only=False, map_location=torch.device(device))
-    model.to(dtype=getattr(torch, dtype))
+    # map_location alone leaves some e3nn constant buffers (compiled tensor-product Wigner 3j) on the CPU
+    model.to(device=torch.device(device), dtype=getattr(torch, dtype))
     return MACEWrapper(model)
 
 

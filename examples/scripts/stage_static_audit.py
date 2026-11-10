@@ -112,10 +112,13 @@ def main(argv=None) -> int:
         "Exports: `export.list` (outputs/*, logs/*). `vasprun.xml.gz` carries the forces the analysis reads.",
     ]
     lf(out / "README.md", "\n".join(readme) + "\n")
+    import hashlib
+    sha = {p.relative_to(out).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
+           for p in sorted(out.rglob("*")) if p.is_file() and p.name != "package.json"}
     lf(out / "package.json", json.dumps({
         "package": pkg, "generator": "PV_Passivator stage_static_audit.py", "jobs": len(m["jobs"]),
         "stages": {"smoke": 1, **{k: len(v) for k, v in lists.items()}}, "cost_estimate_node_h": cost,
-        "submitted": False}, indent=1) + "\n")
+        "submitted": False, "files_sha256": sha}, indent=1) + "\n")
     print(f"staged {pkg}: {len(m['jobs']) + 1} runs in 3 stages -> {out}")
     return 0
 
