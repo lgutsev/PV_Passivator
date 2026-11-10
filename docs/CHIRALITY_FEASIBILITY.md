@@ -121,6 +121,32 @@ reasons are in §9.
       - Fixed-cell relax energies (520 eV, `LREAL = .FALSE.`): rac is 52 meV/f.u. lower than R. The free-cell
         energies wait for the 520 eV statics.
       - These relaxed cells are the DFT reference minima for the MLIP acceptance tests in §8.
+- **Zero-shot test of the foundation model [M] (2026-11-10, local, no labels written):**
+  - Script `examples/scripts/mlip_vs_dft_chirality.py`, run in the `maceh` env. Model: MACE-matpes-r2scan-omat-ft +
+    D3(BJ, r2scan), float64.
+  - Data: every 4th frame of the DFT fixed-cell relax trajectories (24 R frames, 27 rac frames), then an MLIP
+    fixed-cell relax from each DFT minimum.
+
+  | Item | R | rac | Criterion | Verdict |
+  |---|---|---|---|---|
+  | Force RMSE C / N | 0.180 / 0.182 | 0.181 / 0.150 eV/Å | ≤ 0.05, none > 0.08 | fail |
+  | Force RMSE I_axial / I_bridging | 0.153 / 0.027 | 0.145 / 0.028 | | fail (axial) |
+  | Force RMSE H on N / H on C / Pb | 0.073 / 0.067 / 0.013 | 0.073 / 0.060 / 0.000 (Pb on inversion centres) | | fail (H) |
+  | MLIP fmax at the DFT minimum | 0.55 eV/Å | 0.51 eV/Å | — | — |
+  | MLIP relax away from the DFT minimum | 0.12 Å RMS, 0.27 max | 0.07 Å RMS, 0.17 max | — | — |
+  | Net τ_eq (DFT → MLIP) | 0.0054 → 0.0022 (−58 %) | 0 → 0 | same sign, within 25 % | sign ok, magnitude fail |
+  | Net τ_org | −0.018 → −0.029 (+60 %) | 0 → 0 | same sign, within 25 % | sign ok, magnitude fail |
+  | Max per-link difference (org) | 0.042 | 0.020 | ≤ 0.02 | fail (R) |
+  | R − rac energy | 35.3 vs DFT 51.1 meV/f.u. | | within 10 meV/f.u. | fail |
+  | Stereocentres | kept | kept | — | ok |
+
+  - **Verdict: the foundation model is not usable for chirality dynamics.** This confirms the NO-GO for MD in §9.
+  - The largest errors sit exactly at the transfer interface: axial I (H-bond acceptors), N, C and N–H. The
+    bridging I and Pb framework is described well (≤ 0.03 eV/Å).
+  - Fine-tuning needs labels that sample the cation–axial-iodide coupling: rotor scans (D3–D5), distortions (D6),
+    finite-T frames (D8), and a held-out D9.
+  - Measured cost changes the estimate: a 188-atom R static at 520 eV with `LREAL = .FALSE.` takes ~12 min on one
+    node, so the ~330 single points of D3–D9 are ≈ 70–100 node-h rather than the 100–330 inferred earlier.
 
 ## 1. Hypothesis under test
 
