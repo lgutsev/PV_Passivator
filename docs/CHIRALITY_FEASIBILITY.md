@@ -102,6 +102,25 @@ reasons are in §9.
       hand-off `HANDOFF_TO_DISPATCH_105_REV1.md`, `prepare_chirality_d0.py stage --mode d1`.
     - Only `LREAL` differs from 105. The starts are byte-identical to the 105 runs. Mock run 8/8 DONE.
     - Estimated 19–67 node-h.
+    - **Relaxations done** (LONI job 1171640, about 25 node-h; read with `analyze_chirality_d1.py`; desk ledger
+      `b53431d`). All four are intact: stereocentres kept, Pb six-coordinate, NH₃⁺ kept, final fmax < 0.01 eV/Å.
+
+      | Job | Volume vs X-ray | Net τ_ax / τ_eq / τ_org (X-ray → relaxed) | Pb–I–Pb (°) |
+      |---|---|---|---|
+      | R fixed cell | 0 | 0.00016 / 0.0065 / −0.029 → 0.00017 / 0.0054 / −0.018 | 149.3, 155.8 |
+      | R free cell | −3.3 % (a 8.79, b 9.12, c 28.45 Å; still orthorhombic) | → 0.00027 / 0.0056 / −0.022 | 148.0, 155.5 |
+      | rac fixed cell | 0 | 0 / 0 / 0 → 0 / 0 / 0 (per-link τ_ax ±0.100) | 154.1 |
+      | rac free cell | −4.8 % (β 100.1° → 99.6°) | 0 / 0 / 0 (per-link τ_ax ±0.095) | 152.3 |
+
+      - Every net descriptor keeps its X-ray sign. τ_eq shrinks by ~15 % and τ_org by 25–40 %; τ_ax stays at the
+        2×10⁻⁴ noise level.
+      - The inversion of relaxed R gives exactly the negated values, so the exact-mirror S for later work is the
+        inversion of relaxed R.
+      - The volume loss mixes thermal expansion (DFT is at 0 K; the X-ray data were taken at 173 / 293 K) with
+        r2SCAN+D3 overbinding. These runs cannot separate the two.
+      - Fixed-cell relax energies (520 eV, `LREAL = .FALSE.`): rac is 52 meV/f.u. lower than R. The free-cell
+        energies wait for the 520 eV statics.
+      - These relaxed cells are the DFT reference minima for the MLIP acceptance tests in §8.
 
 ## 1. Hypothesis under test
 
