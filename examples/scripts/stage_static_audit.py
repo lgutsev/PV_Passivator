@@ -19,6 +19,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from stage_label_set import LIB, SLURM, lf  # noqa: E402
 
 
+
+def signal_margin(walltime: str) -> int:
+    """Seconds before the walltime at which USR1 is sent: min(1800, walltime / 4).  A fixed 1800 s on a 1 h job
+    fires at the half-way mark and stops a run that is still fine (desk, package 110)."""
+    parts = [int(x) for x in walltime.replace("-", ":").split(":")]
+    secs = sum(v * m for v, m in zip(reversed(parts), (1, 60, 3600, 86400)))
+    return min(1800, secs // 4)
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--package", required=True), ap.add_argument("--cluster", required=True)
@@ -70,7 +79,8 @@ def main(argv=None) -> int:
         text = SLURM.format(name=f"{pkg.split('_')[0]}-{key}", account=cl["account"], partition=cl["partition"],
                             array=array, nodes=st["nodes"], ntasks=cl["ntasks_per_node"], time=st["time"],
                             output="%x_%A_%a.out" if list_name else "%x_%j.out", package=pkg,
-                            signal_s=int(st.get("signal_margin_s", 1800)), purpose=purpose, body=body)
+                            signal_s=int(st.get("signal_margin_s", signal_margin(st["time"]))), purpose=purpose,
+                            body=body)
         lf(out / fname, text.replace("stage_label_set.py", "stage_static_audit.py"))
 
     # array tasks that start together must not load the container module at the same instant (desk lesson, 2026-11-01)
