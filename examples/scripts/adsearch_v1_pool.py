@@ -89,6 +89,9 @@ def main(argv=None) -> int:
     ap.add_argument("--legacy", action="append", default=[], help="NAME=path/to/CONTCAR of an archived complex")
     ap.add_argument("--legacy-slab", default=None, help="bare slab the archived complexes were built on")
     ap.add_argument("--dry-run", action="store_true", help="build everything, evaluate nothing (no model needed)")
+    ap.add_argument("--prerelax-steps", type=int, default=400,
+                    help="relax the bare slab's face region with the model first (0 = off); see the docstring")
+    ap.add_argument("--prerelax-fmax", type=float, default=0.05)
     a = ap.parse_args(argv)
     out = Path(a.out)
     (out / "structures").mkdir(parents=True, exist_ok=True)
@@ -104,6 +107,38 @@ def main(argv=None) -> int:
     cfg2 = json.loads(json.dumps(cfg))
     cfg2["slab"]["path"] = str((out / "slab_common" / "POSCAR").resolve())
     two, prov = P.load_space(cfg2)
+    calc, pre = None, None
+    rx = cfg.get("benchmark", {}).get("relax", {})
+    pre_file = out / "slab_common" / "POSCAR_prerelaxed"
+    if a.prerelax_steps and not a.dry_run:
+        # The model's own minimum for the bare face differs from the DFT slab, so without this every candidate
+        # relaxation would spend most of its steps re-relaxing the slab. Done once, with the same face-wide mobile
+        # set; the candidates are then built on the result and the far field stays at the mapped DFT slab.
+        from local_settle import make_calc
+        calc = make_calc(Path(a.model), a.device)
+        if pre_file.exists() and (out / "slab_common" / "prerelax.json").exists():
+            pre = json.loads((out / "slab_common" / "prerelax.json").read_text())
+        else:
+            ev0 = A.AseRelaxEvaluator(calc, fmax=a.prerelax_fmax, steps=a.prerelax_steps, radius=rx.get("radius_A", 8.0),
+                                      mobile="face", space=two)
+            e0 = A.single_point(calc, two.substrate).info["model_energy"]
+            res = ev0(two.substrate, ())
+            move = np.linalg.norm(res.atoms.positions - two.substrate.positions, axis=1)
+            pre = {"steps": res.info["steps"], "converged": res.converged, "fmax_target": a.prerelax_fmax,
+                   "fmax_end": res.info["fmax_end"], "n_mobile": res.info["n_mobile"], "n_calls": res.n_calls,
+                   "energy_change_eV": round(res.energy - e0, 4), "max_move_A": round(float(move.max()), 3),
+                   "mean_move_mobile_A": round(float(move[move > 0].mean()), 3), "seconds": res.info["seconds"]}
+            plain = res.atoms.copy()
+            for k in list(plain.arrays):
+                if k not in ("numbers", "positions"):
+                    del plain.arrays[k]
+            write(pre_file, plain, format="vasp", direct=True, sort=False)
+            (out / "slab_common" / "prerelax.json").write_text(json.dumps(pre, indent=1))
+            print("slab pre-relaxation:", json.dumps(pre), flush=True)
+        cfg2["slab"]["path"] = str(pre_file.resolve())
+        two, prov = P.load_space(cfg2)
+        prov["slab_prerelax"] = {**pre, "file": "slab_common/POSCAR_prerelaxed",
+                                 "note": "face region relaxed with the audited model; far field = mapped DFT slab"}
     one, _ = P.load_space(cfg2, n_molecules=1)
     prov["slab_mapping"] = {"source": str(src), "source_sha256_16": sha256_file(src)[:16], "common_cell_A": cell.tolist(),
                             **rep}
@@ -156,8 +191,7 @@ def main(argv=None) -> int:
 
     from local_settle import make_calc
     import hashlib
-    calc = make_calc(Path(a.model), a.device)
-    rx = cfg.get("benchmark", {}).get("relax", {})
+    calc = calc or make_calc(Path(a.model), a.device)
     proto = None
     molecule = A.single_point(calc, _boxed(two.spec.passivator.atoms, 25.0))
     write(out / "structures" / "ref_molecule.extxyz", molecule, format="extxyz")
