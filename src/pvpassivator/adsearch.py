@@ -401,6 +401,29 @@ class SearchSpace:
                 del m.arrays[key]
         return m
 
+    def adopt(self, molecules: list[Atoms]) -> Atoms:
+        """Substrate (verbatim) + externally positioned molecules, tagged like built candidates. For
+        structures that do not come from genes (a transplanted archive arrangement); atom order inside
+        each molecule is the caller's, so no library topology/stereo check is made here."""
+        full = self.substrate.copy()
+        fbase = int(self.substrate.arrays["fragment_id"].max()) + 1
+        for k, mol in enumerate(molecules, 1):
+            m = Atoms(mol.get_chemical_symbols(), positions=mol.positions, cell=self.substrate.cell,
+                      pbc=self.substrate.pbc)
+            m.set_array("atom_id", MOL_ID0 + 1000 * (k - 1) + np.arange(len(m)))
+            fr = np.empty(len(m), int)
+            for i, g in enumerate(fragments(m, pbc=False)):
+                fr[g] = fbase + 50 * (k - 1) + i
+            m.set_array("fragment_id", fr)
+            m.set_array("origin", np.full(len(m), k))
+            m.set_array("role", np.full(len(m), ROLE["passivant"]))
+            m.set_array("mol_id", np.full(len(m), k))
+            full += m
+        ok, why = substrate_integrity(self.substrate, full, max_move=0.0)
+        if not ok:
+            raise ValueError("substrate changed while adopting molecules: " + why)
+        return full
+
     def build(self, genes: tuple) -> tuple[Atoms, list[str], dict]:
         """Atoms for ``genes`` (substrate first, verbatim, then molecules unwrapped), the list of
         rejection reasons (empty = valid) and details."""
@@ -721,12 +744,29 @@ class AseRelaxEvaluator:
         conv = bool(opt.run(fmax=self.fmax, steps=self.steps))
         e = float(a.get_potential_energy())
         f = float(np.linalg.norm(a.get_forces()[mob], axis=1).max())
+        forces = a.get_forces(apply_constraint=False)          # raw model forces on every atom, fixed ones included
         out = a.copy()
         out.set_constraint()
         out.calc = None
+        out.set_array("model_forces", forces)
+        out.set_array("mobile", mob.astype(int))
+        out.info["model_energy"] = e
         return EvalResult(out, e, self.calc._adsearch_calls - n0, conv,
                           {"steps": int(opt.nsteps), "fmax_end": round(f, 4), "n_mobile": int(mob.sum()),
                            "seconds": round(time.time() - t0, 2)})
+
+
+def single_point(calc, atoms: Atoms) -> Atoms:
+    """Copy of ``atoms`` with the calculator's energy (``info['model_energy']``) and forces
+    (``arrays['model_forces']``) at exactly this geometry; nothing moves."""
+    a = atoms.copy()
+    a.set_constraint()
+    a.calc = calc
+    e, f = float(a.get_potential_energy()), a.get_forces()
+    a.calc = None
+    a.set_array("model_forces", f)
+    a.info["model_energy"] = e
+    return a
 
 
 def _count_calls(calc):

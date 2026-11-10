@@ -325,6 +325,13 @@ def test_relax_evaluator_fixes_far_field_and_counts_calls(space):
     assert np.allclose(res.atoms.positions[atoms.arrays["mol_id"] > 0], target[atoms.arrays["mol_id"] > 0], atol=0.02)
     assert np.array_equal(res.atoms.arrays["atom_id"], atoms.arrays["atom_id"])
     assert np.array_equal(res.atoms.arrays["role"], atoms.arrays["role"])
+    assert res.atoms.arrays["model_forces"].shape == (len(atoms), 3) and res.atoms.info["model_energy"] == res.energy
+    assert np.array_equal(res.atoms.arrays["mobile"].astype(bool), mob)
+    sp_ = A.single_point(Spring(target), atoms)
+    assert np.array_equal(sp_.positions, atoms.positions) and np.allclose(sp_.arrays["model_forces"][-1], 0.2 * space.n_out)
+    adopted = space.adopt([atoms[i] for i in A._molecules(atoms)])
+    assert space.same_structure(adopted, atoms) and np.array_equal(adopted.arrays["role"], atoms.arrays["role"])
+    assert np.array_equal(adopted.positions[:len(space.substrate)], space.substrate.positions)
     log = A.run_search(space, ev, "random", 4, seed=0, n_init=4)
     assert log["total_calls"] == sum(r["n_calls"] for r in log["records"]) > log["evaluated"]
 
