@@ -163,6 +163,30 @@ reasons are in §9.
   - About 12–20 node-h. Mock run 62/62 DONE.
   - Not in this tranche: D8 finite-T frames and the D9 held-out set. They need local pre-relaxer MD frames: about
     6 runs × 2–3 h on the laptop GPU, which needs the owner's OK under the no-long-GPU-jobs rule.
+  - Sent 2026-11-10 ("Yes, send it"). The desk took it in as package 113 (LONI job 1174343, array 0-61%20).
+- **D8/D9 frame generation with the foundation model failed its integrity check (2026-11-10).** The owner said
+  "Yes, run it" for the local MD. Generator: `examples/scripts/run_chirality_premd.py`, 12 runs, about 3.7 GPU-h.
+  Setup:
+  - Langevin NVT on the 105 rev1 fixed-cell minima.
+  - Every saved frame is re-checked: six-coordinate Pb within 3.8 Å, intact NH₃⁺, unchanged stereocentres.
+
+  | System | 173 K | 293 K | 358 K |
+  |---|---|---|---|
+  | R, D8 (30 wanted) | 4, broken (Pb 5-coordinate) | 4, broken | 0, broken (an N–H lost in the first frame) |
+  | rac, D8 (30 wanted) | **30 ok** | 2, broken | 2, broken |
+  | R, D9 (10 wanted) | 1, broken | 0, broken | 0, broken |
+  | rac, D9 (10 wanted) | **10 ok** | **10 ok** | **10 ok** |
+
+  - Every break is the same pattern: the longest Pb–I bond stretches from 3.33 Å (DFT minimum) to 3.6–3.75 Å
+    within 0.5–2 ps, until one crosses 3.8 Å. Even the rac frames that pass sit at 3.4–3.7 Å.
+  - Mean kinetic temperatures run 7–13 % above the thermostat target.
+  - Reading: this is the foundation model's soft axial-iodide response, which matches its axial-I force RMSE
+    of 0.15 eV/Å. It is not a physical result.
+  - The frames are biased: labelling them would spend DFT on model-softened geometries and would barely
+    cover R. **Not staged.**
+  - The usual fix is one active-learning round: fine-tune on tranche A (113) plus the D1 relax trajectories,
+    then regenerate D8/D9 with the fine-tuned model and the same checks. The 70 intact rac frames are kept in
+    `data/cache/chirality_premd` and are not labels.
 
 ## 1. Hypothesis under test
 
