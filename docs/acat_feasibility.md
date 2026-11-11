@@ -171,6 +171,15 @@ What the failure looks like, on the 14 relaxed two-melamine structures alone (MA
 
 Consequences. (1) The foundation model plus D3 is usable to *order* arrangements of this kind and to pre-relax them; it is not usable for energy differences at the 0.10 eV level, nor for forces near the molecule. (2) These DFT energies are at model geometries, not DFT minima, so they are audit points, not adsorption energies. (3) A fine-tune is warranted: package 110 gives 19 r2SCAN frames with forces on this interface (about 11,300 atoms), to be combined with the package-53 frames only after the `LREAL` difference is handled, with whole arrangements held out for testing. Not started.
 
+## 8b. Fine-tune prepared, not run (2026-11-11)
+
+- **Data** (`export_audit_frames.py`, git-ignored `data/cache/adsearch/ft110/dataset_v1`): one frame per finished static of package 110, target = DFT free energy minus D3(BJ, r2SCAN), with a per-element energy offset to the foundation model removed (fitted on the training frames; it cancels within a composition). Split by whole arrangement, so nothing descended from a test start is trained on: **train 13** (slab, molecule, two single-molecule modes, legacy A and C, six random arrangements, one unrelaxed start), **valid 2** (random 03, 09), **test 6** (legacy B, random 00 and its unrelaxed start, random 04, random 06, amine-N single molecule). `asbuilt_02` is absent until it returns.
+- **Baseline on the test split** (`score_audit_model.py --stored`, foundation model, no dispersion on either side): energy differences within the two-melamine group off by 0.24 eV on average and 0.55 eV at worst (5 structures spanning 1.66 eV); force RMSE 0.075 eV/Å over all atoms and 0.21 eV/Å near the molecules.
+- **Configuration** (`examples/adsearch/mel2_ft110_finetune.yaml`): naive fine-tune of the foundation checkpoint, foundation E0s, energy weight 1000 and force weight 100, learning rate 1e-4, batch 1, up to 150 epochs with patience 30, float32 (float64 training does not fit the 8 GB GPU).
+- **Preflight:** one epoch ran end to end in about 9 s on the laptop GPU (the whole run is under half a GPU-hour). That single epoch already halved the all-atom force RMSE on the validation frames (0.076 to 0.037 eV/Å); it is a plumbing check, not a result.
+- **What will count as success**, on the test split only: the audit's own thresholds (relative energy MAE ≤ 0.10 eV and worst ≤ 0.20 eV; near-molecule force RMSE ≤ 0.05 eV/Å, mean cosine ≥ 0.9). With six test frames this is a pilot: a pass justifies a cross-validated repeat and re-relaxation of the pool with the new model, not a claim that the model is validated.
+- **Known weaknesses:** 13 training geometries, all at or near *model* minima plus one far-from-minimum start, so the model sees few displaced configurations; no replay of the foundation's training data, so behaviour away from this interface may degrade; package-53 frames are not included (their `LREAL = Auto` offset is unquantified here).
+
 ## 9. Reproduce
 
 ```

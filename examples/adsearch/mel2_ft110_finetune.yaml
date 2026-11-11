@@ -1,0 +1,32 @@
+# mace_run_train config: melamine/PbI2-face fine-tune on LONI package 110 audit frames (dataset_v1)
+# Run from this directory:  python -m mace.cli.run_train --config finetune.yaml
+name: pvpass_mel2_ft110_v1
+seed: 17
+foundation_model: D:/MLIP_Foundational_Models/mace/MACE-matpes-r2scan-omat-ft.model
+multiheads_finetuning: false      # naive fine-tune; no replay of the foundation's training set
+E0s: foundation                   # the composition-linear offset is already removed from REF_energy (dataset.json: alignment)
+train_file: ../dataset_v1/train.extxyz
+valid_file: ../dataset_v1/valid.extxyz
+test_file: ../dataset_v1/test.extxyz
+energy_key: REF_energy            # (DFT free energy - D3(bj,r2scan)) - per-element alignment shift
+forces_key: REF_forces
+loss: weighted
+energy_weight: 1000.0             # per-atom energy errors are ~3e-4 eV/atom at the 0.2 eV level; weight them up
+forces_weight: 100.0
+stress_weight: 0.0
+compute_stress: false
+lr: 0.0001
+batch_size: 1                     # one 597-atom graph per step: the 8 GB GPU holds no more
+valid_batch_size: 1
+max_num_epochs: 150
+patience: 30
+eval_interval: 1
+ema: true
+ema_decay: 0.99
+amsgrad: true
+clip_grad: 10.0
+default_dtype: float32            # float64 training does not fit in 8 GB; float32 changes relative energies by <= 0.002 eV
+device: cuda
+restart_latest: true
+save_cpu: true
+work_dir: run
