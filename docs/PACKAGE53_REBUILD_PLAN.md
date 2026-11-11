@@ -129,6 +129,19 @@
 - **First A4 relax done (2026-11-09):** `complex_PEAI` (R = 10 Å) reached required accuracy in 97 ionic steps, E0 −7269.6569 eV, against 294 steps for its free 5.1 relax.
   - At ~1 node-h per step, that points to the low end of the 600–3400 node-h estimate.
   - Tasks 1, 2, 4, 5 and 6 are running (~1.6 days in); tasks 7–11 are queued.
+- **First segment ends (2026-11-10, desk):**
+  - `complex_PFPACl` is DONE in 216 steps, E0 −7204.3048 eV. Its free 5.1 relax was unfinished after 606 steps.
+  - PEAAc, PEATFA and PEACl hit the 72 h walltime while still descending. Their energy over the last 20 steps:
+
+    | Complex | Steps | E0 (eV) | ΔE, last 20 steps |
+    |---|---|---|---|
+    | PEAAc | 216 | −7291.4536 | −7.6 meV |
+    | PEATFA | 216 | −7296.3838 | −9.8 meV |
+    | PEACl | 236 | −7251.9464 | −29.6 meV |
+
+  - They continue from CONTCAR (`sbatch --array=1,2,4 run_relax_slabs.slurm`). Tasks 6–10 are running and 11 is queued.
+  - The cost now leans toward the middle of the estimate: PEAI is the only complex that finished fast. These ran 216–236 steps, or about 200+ node-h each.
+  - **D: caveat:** the D: copies of these folders still hold rev5 files (DONE dated 10-30, `.seg1`/`.seg2`, an old WALLTIME_STOP). Use only files dated 2026-11-07 or later for rev6.
 - Seven complex inputs change (new structure hashes), and `kcheck_complex_PEAAc` follows the rebuilt PEAAc.
 - The revision-4 outputs of the seven move to `outputs_rev4/` and stay training frames; nothing is deleted.
 - Generate with commit a8442ac or later, with `signal_margin_s: 3600` for `relax_slab`.
