@@ -180,6 +180,25 @@ Consequences. (1) The foundation model plus D3 is usable to *order* arrangements
 - **What will count as success**, on the test split only: the audit's own thresholds (relative energy MAE ≤ 0.10 eV and worst ≤ 0.20 eV; near-molecule force RMSE ≤ 0.05 eV/Å, mean cosine ≥ 0.9). With six test frames this is a pilot: a pass justifies a cross-validated repeat and re-relaxation of the pool with the new model, not a claim that the model is validated.
 - **Known weaknesses:** 13 training geometries, all at or near *model* minima plus one far-from-minimum start, so the model sees few displaced configurations; no replay of the foundation's training data, so behaviour away from this interface may degrade; package-53 frames are not included (their `LREAL = Auto` offset is unquantified here).
 
+## 8c. Fine-tune pilot result (2026-11-11): three of four test thresholds met, the fourth missed by 0.001 eV/Å
+
+Run: 150 epochs (the cap; the validation loss was still falling slowly), 12.4 minutes on the laptop GPU. Model: `data/cache/adsearch/ft110/run_v1/run/pvpass_mel2_ft110_v1.model` (git-ignored), sha256 `99fdd158…e903d3`. Scored in float64 with `score_audit_model.py` on the six held-out frames, no dispersion on either side.
+
+| Test split (6 frames, never trained on) | Threshold | Foundation | Fine-tuned | |
+|---|---|---|---|---|
+| Relative energy, MAE (5 two-melamine frames spanning 1.66 eV) | ≤ 0.10 eV | 0.24 | 0.06 | pass |
+| Relative energy, worst | ≤ 0.20 eV | 0.55 | 0.13 | pass |
+| Force RMSE near the molecules (215 atoms) | ≤ 0.05 eV/Å | 0.208 | 0.051 | marginal fail |
+| Force direction near the molecules, mean cos | ≥ 0.9 | 0.14 | 0.97 | pass |
+| Force RMSE, all atoms | (none) | 0.075 | 0.014 | |
+
+- The order of the five held-out two-melamine frames matches DFT exactly, and the energy scale is no longer compressed: DFT 0, 0.26, 0.95, 1.43, 1.66 eV against 0, 0.17, 0.81, 1.18, 1.55 eV (foundation: 0, −0.06, 0.61, 0.58, 1.68).
+- The near-molecule force error is carried by the unrelaxed start (`asbuilt_00`, 0.090 eV/Å) and legacy B (0.056); the three other complexes are at 0.02–0.04. Only one far-from-minimum frame was in training.
+- The held-out amine-N single molecule is still 0.14 eV too low against the aligned DFT energy (0.33 before).
+- Train/valid for comparison: force RMSE near 0.024 / 0.030 eV/Å, relative energy MAE 0.08 / 0.06 eV. Test errors are about twice the training ones: some overfitting, as expected from 13 frames.
+
+What this does and does not show. It shows that 13 single points on this interface are enough to remove most of the foundation model's error on unseen arrangements of the same kind. It does not validate the model: six test frames, one split, one seed, all geometries produced by the foundation model, and nothing tested away from this slab and molecule. Next, in order: (1) repeat as a leave-family-out cross-validation so all 16 arrangements are tested once; (2) re-relax the pool with the fine-tuned model plus D3 and see how far the minima move and whether the order holds; (3) DFT single points at a few of the *new* minima, which is the first test at geometries this model chose. Step 3 needs a go-ahead; 1 and 2 are local.
+
 ## 9. Reproduce
 
 ```
