@@ -118,8 +118,18 @@ reasons are in §9.
         inversion of relaxed R.
       - The volume loss mixes thermal expansion (DFT is at 0 K; the X-ray data were taken at 173 / 293 K) with
         r2SCAN+D3 overbinding. These runs cannot separate the two.
-      - Fixed-cell relax energies (520 eV, `LREAL = .FALSE.`): rac is 52 meV/f.u. lower than R. The free-cell
-        energies wait for the 520 eV statics.
+      - Fixed-cell relax energies (520 eV, `LREAL = .FALSE.`): rac is 52 meV/f.u. lower than R.
+      - 520 eV statics (job 1173509, received at desk 302a6bf):
+
+        | Cell | E(R) − E(rac) | D3 part |
+        |---|---|---|
+        | fixed (X-ray) cells | +51.1 meV/f.u. | −19.0 meV/f.u. (D3 favours R) |
+        | free (relaxed) cells | **+75.0 meV/f.u.** | +16.3 meV/f.u. |
+
+        - Cell relaxation lowers rac by 33.9 meV/f.u. but R by only 10.0.
+        - The racemic crystal is the lower-energy one at 0 K. Its sign agrees with the existence of the racemic
+          compound. The size is a static 0 K number (no ZPE or vibrational free energy).
+        - **The MLIP R−rac target is +75.0 meV/f.u. on the free-cell minima** (+51.1 on the fixed cells).
       - These relaxed cells are the DFT reference minima for the MLIP acceptance tests in §8.
 - **Zero-shot test of the foundation model [M] (2026-11-10, local, no labels written):**
   - Script `examples/scripts/mlip_vs_dft_chirality.py`, run in the `maceh` env. Model: MACE-matpes-r2scan-omat-ft +
@@ -197,6 +207,8 @@ reasons are in §9.
   - Sources:
     - 113 label single points.
     - 105 rev1 **fixed-cell** relax trajectories, every 4th frame plus the last, all in train.
+    - The four 105 rev1 statics at 520 eV, also in train. The fixed-cell statics supersede their relax
+      endpoints; the free-cell statics add the relaxed cells.
     - Excluded with a recorded reason: the free-cell relaxes (ENCUT 676 for Pulay stress, so a different
       Hamiltonian) and the D0 checks (`LREAL = Auto`).
     - R and rac differ only in k-mesh, at one k-spacing (converged in D0).

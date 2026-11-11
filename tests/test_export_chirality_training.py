@@ -46,4 +46,7 @@ def test_relax_frames_from_105(tmp_path):
     assert rep["files"]["train"]["frames"] > 10 and rep["files"]["valid"]["frames"] == 0
     assert set(rep["files"]["train"]["by_config_type"]) == {"D1_R", "D1_rac"}
     assert not rep["ready_for_pilot"]
+    # the fixed-cell statics supersede their relax endpoints; the free-cell statics (520 eV) are added
+    assert sorted(d["kept"].split("/", 1)[1] for d in rep["duplicates"]) == ["R_fixcell/static", "rac_fixcell/static"]
+    assert not any("fullcell" in r["job"] for r in rep["rejected"])
     assert rep["reference_fingerprint"]["LREAL"] in ("FALSE", ".FALSE.", "F")

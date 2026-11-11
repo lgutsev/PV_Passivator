@@ -13,7 +13,8 @@ Differences from the reaction-bundle exporter, all deliberate:
 * R (3x3x1) and rac (3x3x2) use one k-spacing (0.25 1/A, converged in D0), so k-meshes may differ; every other
   Hamiltonian key must match the reference profile (520 eV, LREAL=.FALSE., r2SCAN+D3(BJ)). Mismatching runs, e.g. the
   free-cell relaxations at ENCUT 676 and the LREAL=Auto D0 checks, are rejected with a reason, not pooled.
-* Relaxations: fixed-cell trajectories only, every ``--relax-stride``-th frame plus the last; all go to train.
+* Package 105: fixed-cell relax trajectories (every ``--relax-stride``-th frame plus the last) and the four 520 eV
+  statics (fixed- and free-cell minima); all go to train. A static supersedes its own relax endpoint.
 * Target: by default D3(BJ, r2SCAN) is subtracted (torch-dftd, default cutoffs; reproduces the VASP Edisp to 0.1 meV
   per cell on the 105 minima), so the model learns the r2SCAN part like its foundation model and D3 is added back at
   inference. ``--keep-d3`` trains on the full DFT energy instead. The DFT values are kept as DFT_energy/DFT_forces.
@@ -37,6 +38,7 @@ from pvpassivator.vasp_io import compatible, parse_run  # noqa: E402
 
 SPLITS = ROOT / "examples" / "chirality" / "finetune_splits.json"
 RELAX_JOBS = {"R_fixcell": "R", "rac_fixcell": "rac"}
+STATIC_JOBS = {"R_fixcell": "R", "rac_fixcell": "rac", "R_fullcell": "R", "rac_fullcell": "rac"}
 
 
 def assign_split(meta: dict, rules: list[dict]) -> str:
@@ -65,6 +67,8 @@ def _sources(relax_pkgs, label_pkgs):
     for pkg in relax_pkgs:
         for job, system in RELAX_JOBS.items():
             out.append((Path(pkg), job, "relax", {"block": "D1", "system": system, "job": job}))
+        for job, system in STATIC_JOBS.items():
+            out.append((Path(pkg), job, "static", {"block": "D1", "system": system, "job": job}))
     for pkg in label_pkgs:
         man = json.loads((Path(pkg) / "manifest.json").read_text())
         points = man.get("settle", {}).get("points", {})
@@ -123,7 +127,7 @@ def export(relax_pkgs, label_pkgs, out, splits_file=SPLITS, relax_stride=4, subt
         rejected += [dict(job=key, step=step, **r) for r in skipped]
         if step == "relax" and got:
             got = got[::relax_stride] + ([got[-1]] if (len(got) - 1) % relax_stride else [])
-        split = "train" if step == "relax" else assign_split(meta, rules)
+        split = "train" if meta["block"] == "D1" else assign_split(meta, rules)
         src = sha256(xml)
         for i, at in got:
             at.info.update({k: v for k, v in meta.items() if isinstance(v, (int, float, str))})
@@ -132,15 +136,25 @@ def export(relax_pkgs, label_pkgs, out, splits_file=SPLITS, relax_stride=4, subt
             frames.append(at)
         runs.append(run)
     partition = {s: [] for s in ("train", "valid", "test")}
-    seen, duplicates = {}, []
+    seen, duplicates, frames_kept = {}, [], []
     for at in frames:
         g = geometry_key(at)
         if g in seen:
-            if seen[g].info["split"] != at.info["split"]:
-                raise ValueError(f"duplicate geometry crosses splits: {seen[g].info['job_id']} / {at.info['job_id']}")
+            prev = seen[g]
+            if prev.info["split"] != at.info["split"]:
+                raise ValueError(f"duplicate geometry crosses splits: {prev.info['job_id']} / {at.info['job_id']}")
+            if prev.info["job_id"] == at.info["job_id"] and prev.info["step"] == "relax" and at.info["step"] == "static":
+                # the final static is the authoritative recalculation of the relax endpoint (as in training_data)
+                duplicates.append({"kept": at.info["job_id"] + "/static", "dropped": prev.info["job_id"] + "/relax",
+                                   "frame": prev.info["frame_index"]})
+                frames_kept[frames_kept.index(prev)] = at
+                seen[g] = at
+                continue
             duplicates.append({"kept": seen[g].info["job_id"], "dropped": at.info["job_id"], "frame": at.info["frame_index"]})
             continue
         seen[g] = at
+        frames_kept.append(at)
+    for at in frames_kept:
         e, f = at.info.pop("REF_energy"), at.arrays.pop("REF_forces")
         at.info["DFT_energy"] = e
         at.set_array("DFT_forces", f)
