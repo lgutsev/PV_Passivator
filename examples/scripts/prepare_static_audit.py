@@ -160,8 +160,11 @@ def analyze(pkg: Path, pool: Path, reader=None) -> dict:
         order = [int(i) for i in json.loads((pkg / "inputs" / name / "static" / "job.json").read_text())["atom_map"]]
         idx = {int(i): k for k, i in enumerate(a.arrays["atom_id"])}
         perm = np.array([idx[i] for i in order])            # DFT row -> pool row
-        if np.abs(a.positions[perm] - pos).max() > 1e-3:
-            raise ValueError(f"{name}: returned geometry differs from the audited one")
+        # VASP writes positions wrapped into the cell; compare modulo lattice vectors
+        frac = np.linalg.solve(a.cell.array.T, (a.positions[perm] - pos).T).T
+        dev = np.abs((frac - np.round(frac)) @ a.cell.array).max()
+        if dev > 1e-3:
+            raise ValueError(f"{name}: returned geometry differs from the audited one (max {dev:.4f} A)")
         fm = a.arrays["model_forces"][perm]
         ads = (a.arrays["mol_id"] > 0)[perm]
         d = min_image_distances(a.cell.array, a.pbc, pos, pos[ads]).min(axis=1)

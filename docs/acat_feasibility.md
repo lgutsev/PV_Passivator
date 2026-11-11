@@ -148,6 +148,29 @@ Inputs: `examples/scripts/adsearch_v1_pool.py` (pool, model energies and forces)
 
 **Tranche V2, relaxations (only if V1 is encouraging or a fine-tune is planned).** 6–8 frozen-far-field relaxes on a DFT-relaxed slab in the common cell (that slab: 42–234 node-h in the v3 plan, shared with label set v3b). The first package-53 A4 relax took 97 ionic steps at about 1 node-h per step for 532 atoms; scaled by (2778/2220)² that is about 1.5 node-h per step, so **90–230 node-h per structure, 550–1,800 node-h** for the tranche. This is the binding-mode-stability test and the source of fine-tuning frames; the audit structures are chosen before any of it is used for fitting. Not prepared.
 
+## 8a. V1 result (LONI package 110, 2026-11-11): the model ranks correctly but fails as an energy and force model
+
+19 of 20 audited structures returned (EDIFF reached, 27–38 SCF steps, at most 4.2 h on 2 nodes); `asbuilt_02` was still running at export, so the pre-set gate, which requires every structure, is formally **not passed** on that ground alone. The numbers below would not pass with it either. Analysis: `prepare_static_audit.py --analyze`, thresholds from the manifest written before the run.
+
+| Test (two-melamine composition, 16 structures incl. 2 as-built) | Threshold | Result | |
+|---|---|---|---|
+| Relative energy, MAE | ≤ 0.10 eV | 0.23 eV | fail |
+| Relative energy, worst | ≤ 0.20 eV | 0.49 eV | fail |
+| Spearman rank correlation | ≥ 0.8 | 0.97 | pass |
+| DFT top 3 in model top 3 | ≥ 2 | 2 | pass |
+| Force RMSE near the molecules (686 atoms) | ≤ 0.05 eV/Å | 0.21 eV/Å | fail |
+| Force direction, mean cos for \|F\| > 0.05 eV/Å | ≥ 0.9 | 0.11 | fail |
+
+Single-molecule group (3 structures): MAE 0.18 eV, worst 0.26 eV (fail; too few for a rank test). Far-field force RMSE 0.057 eV/Å.
+
+What the failure looks like, on the 14 relaxed two-melamine structures alone (MAE 0.22, worst 0.44 eV, Spearman 0.95):
+
+- **The order is right, the scale is compressed.** DFT spans 2.05 eV where the model spans 1.23 eV (slope 0.60, Pearson 0.97). Both put `legacy_MelMel_C` lowest and `legacy_MelMel` second; DFT's third is the random `pool_00`, the model's is `legacy_MelMel_B` (DFT fourth).
+- **Strongly bound arrangements are accurate, weakly bound ones are overbound.** Fixed-geometry interaction energy against slab and molecule: ring-N end-on −1.02 eV in both DFT and model; `legacy_MelMel_C` −2.31 vs −2.32 eV; but flat −0.48 vs −0.72 eV, amine-N end-on +0.09 vs −0.43 eV, and `pool_04` −0.26 vs −1.10 eV. The model does not see how unfavourable the non-coordinating contacts are.
+- **At the model's minima DFT still has sizeable forces on the molecules** (rms 0.18–0.26 eV/Å, up to 0.6 eV/Å on a nitrogen), which is why the direction test fails: the model's forces there are near zero by construction. Far from the minimum the two agree in direction (as-built: correlation 0.92 on the molecules, 0.96 on iodide), with the model's forces about 15–25 % smaller.
+
+Consequences. (1) The foundation model plus D3 is usable to *order* arrangements of this kind and to pre-relax them; it is not usable for energy differences at the 0.10 eV level, nor for forces near the molecule. (2) These DFT energies are at model geometries, not DFT minima, so they are audit points, not adsorption energies. (3) A fine-tune is warranted: package 110 gives 19 r2SCAN frames with forces on this interface (about 11,300 atoms), to be combined with the package-53 frames only after the `LREAL` difference is handled, with whole arrangements held out for testing. Not started.
+
 ## 9. Reproduce
 
 ```
