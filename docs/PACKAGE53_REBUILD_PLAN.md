@@ -139,7 +139,7 @@
     | PEATFA | 216 | −7296.3838 | −9.8 meV |
     | PEACl | 236 | −7251.9464 | −29.6 meV |
 
-  - They continue from CONTCAR (`sbatch --array=1,2,4 run_relax_slabs.slurm`). Tasks 6–10 are running and 11 is queued.
+  - They continue from CONTCAR as job 1176164 (`sbatch --array=1,2,4 run_relax_slabs.slurm`). Tasks 6–10 are running and 11 is queued.
   - The cost now leans toward the middle of the estimate: PEAI is the only complex that finished fast. These ran 216–236 steps, or about 200+ node-h each.
   - **D: caveat:** the D: copies of these folders still hold rev5 files (DONE dated 10-30, `.seg1`/`.seg2`, an old WALLTIME_STOP). Use only files dated 2026-11-07 or later for rev6.
 - Seven complex inputs change (new structure hashes), and `kcheck_complex_PEAAc` follows the rebuilt PEAAc.
