@@ -265,8 +265,12 @@ def export_dataset(packages, out, split_plan=None, stride=1):
     return result
 
 
-def prepare_finetune(dataset, checkpoint, out, expected_mace_version):
-    """Prepare an explicit-checkpoint, no-auto-download MACE pilot configuration."""
+def prepare_finetune(dataset, checkpoint, out, expected_mace_version, overrides=None):
+    """Prepare an explicit-checkpoint, no-auto-download MACE pilot configuration.
+
+    ``overrides`` replaces individual config keys (recorded in provenance); data paths and the checkpoint cannot be
+    overridden.
+    """
     dataset, checkpoint, out = Path(dataset).resolve(), Path(checkpoint).resolve(), Path(out)
     report = json.loads((dataset / 'dataset.json').read_text())
     if not report['ready_for_pilot']:
@@ -298,11 +302,16 @@ def prepare_finetune(dataset, checkpoint, out, expected_mace_version):
               'model_dir': 'models', 'checkpoints_dir': 'checkpoints', 'results_dir': 'results', 'log_dir': 'logs'}
     if report['files']['test']['frames']:
         config['test_file'] = str(dataset / 'test.extxyz')
+    overrides = dict(overrides or {})
+    locked = {'foundation_model', 'train_file', 'valid_file', 'test_file'} & set(overrides)
+    if locked:
+        raise ValueError(f'cannot override {sorted(locked)}')
+    config.update(overrides)
     out.mkdir(parents=True, exist_ok=True)
     (out / 'mace_config.json').write_text(json.dumps(config, indent=2) + '\n')
     provenance = {'mace_version': expected_mace_version, 'checkpoint': str(checkpoint),
                   'checkpoint_sha256': sha256(checkpoint), 'dataset': str(dataset),
                   'dataset_report_sha256': sha256(dataset / 'dataset.json'), 'files': report['files'],
-                  'config_sha256': sha256(out / 'mace_config.json')}
+                  'config_sha256': sha256(out / 'mace_config.json'), 'overrides': overrides}
     (out / 'provenance.json').write_text(json.dumps(provenance, indent=2) + '\n')
     return provenance

@@ -187,6 +187,58 @@ reasons are in §9.
   - The usual fix is one active-learning round: fine-tune on tranche A (113) plus the D1 relax trajectories,
     then regenerate D8/D9 with the fine-tuned model and the same checks. The 70 intact rac frames are kept in
     `data/cache/chirality_premd` and are not labels.
+- **Fine-tune first (owner, 2026-11-11).** The dataset and fine-tune configuration are prepared with the existing
+  training-pilot tools. Nothing has been trained yet: training waits for the package 113 export.
+  - Exporter: `examples/scripts/export_chirality_training.py` (tests: `tests/test_export_chirality_training.py`).
+    - It reuses the run-acceptance, per-frame SCF, Hamiltonian-fingerprint and geometry-hash checks of
+      `pvpassivator.training_data`.
+    - It writes the same `pvpass_training/1` layout, so `prepare_mace_finetune.py` and `run_mace_pilot.py` run
+      unchanged.
+  - Sources:
+    - 113 label single points.
+    - 105 rev1 **fixed-cell** relax trajectories, every 4th frame plus the last, all in train.
+    - Excluded with a recorded reason: the free-cell relaxes (ENCUT 676 for Pulay stress, so a different
+      Hamiltonian) and the D0 checks (`LREAL = Auto`).
+    - R and rac differ only in k-mesh, at one k-spacing (converged in D0).
+  - Target: D3(BJ, r2SCAN) is subtracted from the DFT labels, and D3 is added back at inference.
+    - This matches the foundation model, which was trained without dispersion.
+    - torch-dftd reproduces the VASP `Edisp` to ≤ 0.07 meV per cell on the 105 relax endpoints
+      (R −8.25201 vs −8.25207 eV; rac −4.08800 vs −4.08804 eV).
+  - Splits (`examples/chirality/finetune_splits.json`), fixed before any label returned. Whole scans or seeds
+    only:
+
+    | Split | Content | Points from 113 |
+    |---|---|---|
+    | test | rac NH₃⁺ scan (part of the plan's D9) | 13 |
+    | valid | CH₃ scan, D6 seed 3, ±1 % strain | 14 |
+    | train | everything else, plus the 105 relax frames | 35 |
+
+    Later D9 MD frames go to test.
+  - Configuration (`examples/chirality/finetune_overrides.json`, via a new `--overrides` option of
+    `prepare_mace_finetune.py`):
+    - E0s from the foundation model: two crystals of one composition cannot identify per-element references.
+    - Force weight 100, energy weight 1: the failure is in forces.
+    - Up to 60 epochs, patience 15, batch size 2, float64.
+  - Checked on 2026-11-11 with the 105 relax frames only (51 frames: 24 R, 27 rac; nothing rejected):
+    - Export works. D3 on the CPU takes ~7 s per frame, so use `--device cuda`.
+    - The prepare and preflight steps pass unchanged.
+    - A throwaway 2-epoch run trained on R and validated on rac, with MACE 0.3.16 and `E0s=foundation`:
+      - it runs;
+      - rac force RMSE fell from 123 to 32 meV/Å;
+      - the energy RMSE stays at ~54 meV/atom, a near-constant reference offset that the energy term removes
+        slowly.
+    - These are near-minimum relax frames, so this is a pipeline check, not evidence of accuracy.
+    - Measured cost: ~3.9 min per epoch for 24 frames of 188 atoms in float64 on the laptop GPU. The full set
+      (~85 train frames, half of them 94-atom rac) is ≈ 8–10 min per epoch, so 60 epochs ≈ 8–10 GPU-h.
+      float32 would be faster but is unmeasured. This is a long GPU job and needs the owner's OK when 113
+      returns.
+  - Pass criteria are the ones already fixed in `plan_matrices.json`, scored with D3 added back:
+    - per-environment force RMSE ≤ 0.05 eV/Å (none above 0.08) on the held-out test;
+    - relaxed net τ with the same signs and within 25 % of DFT;
+    - rotor profiles within max(20 meV, 15 %);
+    - R−rac within 10 meV per formula unit.
+
+    A model that passes on the 113 test split only regenerates D8/D9. The production gate still needs the full D9.
 
 ## 1. Hypothesis under test
 

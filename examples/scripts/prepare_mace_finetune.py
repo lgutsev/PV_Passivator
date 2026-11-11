@@ -13,8 +13,10 @@ if __name__ == '__main__':
     p.add_argument('--checkpoint', required=True)
     p.add_argument('--mace-version', required=True)
     p.add_argument('--out', required=True)
+    p.add_argument('--overrides', help='JSON file of config keys to replace (recorded in provenance)')
     a = p.parse_args()
     try:
-        print(json.dumps(prepare_finetune(a.dataset, a.checkpoint, a.out, a.mace_version), indent=2))
+        print(json.dumps(prepare_finetune(a.dataset, a.checkpoint, a.out, a.mace_version,
+                                                json.loads(Path(a.overrides).read_text()) if a.overrides else None), indent=2))
     except (ValueError, OSError, KeyError) as exc:
         p.exit(2, f'{exc}\n')
