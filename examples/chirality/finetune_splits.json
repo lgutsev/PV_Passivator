@@ -1,11 +1,44 @@
 {
  "schema": "pvpass_chirality_splits/1",
- "policy": "Split by whole scan, seed or trajectory, never by neighbouring frames. First matching rule wins; anything unmatched goes to train. Fixed before any label was returned (2026-11-11).",
+ "policy": "Split by whole scan, seed or trajectory, never by neighbouring frames. First matching rule wins; anything unmatched goes to train. Fixed before any label was returned (2026-11-11). A valid/test point whose geometry is identical to a training geometry (the 0-degree scan points are the DFT minima, already in train via the package 105 statics) is removed from valid/test and recorded with its label agreement (rule added 2026-11-12, before any model was trained).",
  "rules": [
-  {"split": "test",  "match": {"block": "D3", "system": "rac"}, "why": "plan D9: the rac NH3 rotation scan is part of the final held-out test"},
-  {"split": "test",  "match": {"block": "D9"}, "why": "held-out MD frames from independent seeds (later tranche)"},
-  {"split": "valid", "match": {"block": "D5"}, "why": "whole CH3 rotor scan: rotor extrapolation check for model selection"},
-  {"split": "valid", "match": {"block": "D6", "seed": 3}, "why": "one framework-distortion seed at all three amplitudes"},
-  {"split": "valid", "match": {"block": "D7", "abs_strain": 0.01}, "why": "+-1 % strain, R and rac; +-2 % stays in train"}
+  {
+   "split": "test",
+   "match": {
+    "block": "D3",
+    "system": "rac"
+   },
+   "why": "plan D9: the rac NH3 rotation scan is part of the final held-out test"
+  },
+  {
+   "split": "test",
+   "match": {
+    "block": "D9"
+   },
+   "why": "held-out MD frames from independent seeds (later tranche)"
+  },
+  {
+   "split": "valid",
+   "match": {
+    "block": "D5"
+   },
+   "why": "whole CH3 rotor scan: rotor extrapolation check for model selection"
+  },
+  {
+   "split": "valid",
+   "match": {
+    "block": "D6",
+    "seed": 3
+   },
+   "why": "one framework-distortion seed at all three amplitudes"
+  },
+  {
+   "split": "valid",
+   "match": {
+    "block": "D7",
+    "abs_strain": 0.01
+   },
+   "why": "+-1 % strain, R and rac; +-2 % stays in train"
+  }
  ]
 }

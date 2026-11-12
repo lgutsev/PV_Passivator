@@ -23,9 +23,13 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
+
+for _v in ("OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS"):
+    os.environ.setdefault(_v, "4")   # shared laptop: keep local jobs to a few cores
 
 import numpy as np
 from ase.io import read, write
@@ -142,7 +146,20 @@ def export(relax_pkgs, label_pkgs, out, splits_file=SPLITS, relax_stride=4, subt
         if g in seen:
             prev = seen[g]
             if prev.info["split"] != at.info["split"]:
-                raise ValueError(f"duplicate geometry crosses splits: {prev.info['job_id']} / {at.info['job_id']}")
+                # A held-out point identical to a training geometry (the 0-degree point of a scan is the DFT minimum)
+                # is no held-out data: keep the train copy, drop the other, record the label agreement.
+                if "train" not in (prev.info["split"], at.info["split"]):
+                    raise ValueError(f"duplicate geometry crosses valid/test: {prev.info['job_id']} / {at.info['job_id']}")
+                keep, drop = (prev, at) if prev.info["split"] == "train" else (at, prev)
+                duplicates.append({"kept": f"{keep.info['job_id']}/{keep.info['step']}",
+                                   "dropped": f"{drop.info['job_id']}/{drop.info['step']}",
+                                   "reason": f"identical to a train geometry; removed from {drop.info['split']}",
+                                   "dE_meV": round(1000 * (drop.info["REF_energy"] - keep.info["REF_energy"]), 4),
+                                   "max_dF_meV_A": round(1000 * float(abs(drop.arrays["REF_forces"] - keep.arrays["REF_forces"]).max()), 4)})
+                if keep is at:
+                    frames_kept[frames_kept.index(prev)] = at
+                    seen[g] = at
+                continue
             if prev.info["job_id"] == at.info["job_id"] and prev.info["step"] == "relax" and at.info["step"] == "static":
                 # the final static is the authoritative recalculation of the relax endpoint (as in training_data)
                 duplicates.append({"kept": at.info["job_id"] + "/static", "dropped": prev.info["job_id"] + "/relax",
@@ -204,6 +221,8 @@ def main(argv=None) -> int:
     ap.add_argument("--keep-d3", action="store_true")
     ap.add_argument("--device", default="cpu")
     a = ap.parse_args(argv)
+    import torch
+    torch.set_num_threads(int(os.environ["OMP_NUM_THREADS"]))
     rep = export(a.relax_pkg, a.label_pkg, a.out, a.splits, a.relax_stride, not a.keep_d3, a.device)
     print(json.dumps({"files": rep["files"], "rejected": len(rep["rejected"]), "duplicates": len(rep["duplicates"]),
                       "ready_for_pilot": rep["ready_for_pilot"]}, indent=1))

@@ -251,6 +251,36 @@ reasons are in §9.
     - R−rac within 10 meV per formula unit.
 
     A model that passes on the 113 test split only regenerates D8/D9. The production gate still needs the full D9.
+- **Package 113 returned 2026-11-12, 62/62 DONE** (job 1174343; task 3 rerun as 1176163). Receipt recorded at desk
+  d1b82bf. Every point converged in ≤ 21 SCF steps.
+  - Dataset `data/training/chirality_v1` (git-ignored): train 85, valid 13, test 12 frames; nothing rejected.
+    - The 0° scan points are the DFT minima, already in train through the 105 statics. Two of them sat in
+      held-out splits (`rac_D3_NH3_000` in test, `R_D5_CH3_000` in valid) and were removed under a rule
+      written into `finetune_splits.json` before any model was trained.
+    - Their labels agree with the 105 statics to 0.0 meV and 0.0 meV/Å: the two packages give identical
+      labels for the same geometry.
+  - **Foundation baseline** (`examples/scripts/score_chirality_mlip.py`; output
+    `data/cache/chirality_scores/foundation.json`). This is the bar the fine-tune must clear:
+
+    | Criterion | Foundation MACE-matpes-r2scan | Required | |
+    |---|---|---|---|
+    | Test forces (rac NH₃⁺ scan), RMSE: C / N / I_axial | 0.181 / 0.149 / 0.141 eV/Å | ≤ 0.05 | fail |
+    | Test forces, RMSE: H on N / H on C | 0.075 / 0.060 eV/Å | ≤ 0.05 | fail |
+    | Test forces, RMSE: Pb / I_bridging | 0.007 / 0.029 eV/Å | ≤ 0.05 | pass |
+    | NH₃⁺ rotor barrier, R / rac | 231 vs DFT 223 / 235 vs 237 meV, profile RMSE 3.7 / 4.2 meV | max(20 meV, 15 %); ≤ 10 meV | pass |
+    | CH₃ rotor barrier (R) | 93 vs 162 meV, RMSE 24.7 | same | fail |
+    | Ring torsion (R / rac, rigid) | 2259 vs 3106 / 262 vs 371 meV | same | fail |
+    | R − rac, fixed / free cells | 35.3 vs 51.1 / 40.1 vs 75.0 meV/f.u. | within 10 | fail |
+
+    - The foundation model already reproduces the NH₃⁺ rotor energy profile, but not the forces along it.
+      The force error sits on the cation's heavy atoms and the axial iodides, not on Pb or the bridging I.
+    - The R D4 80° point is a near-clash of a rigidly rotated ring (3.1 eV). The barrier criterion was
+      written for relaxed barriers, so the rigid ring scans are a force and energy check, not a barrier check.
+    - Three D6 frames (σ ≥ 0.10 Å) break the 3.8 Å six-coordination test. They are scored with plain element
+      masks and listed in the score notes.
+  - Next: the fine-tune itself (`prepare_mace_finetune.py --overrides examples/chirality/finetune_overrides.json`,
+    then `run_mace_pilot.py --execute`), ≈ 8–10 GPU-h. It needs the owner's OK. Since 2026-11-12 the laptop's CPU
+    and GPU are shared with other agents (CPU cap 4 threads; one D3 export already hit a GPU out-of-memory).
 
 ## 1. Hypothesis under test
 
