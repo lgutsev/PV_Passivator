@@ -30,6 +30,9 @@ def test_package_layout(tmp_path):
     assert f"max_num_epochs: {ov['max_num_epochs']}" in yml and "E0s: foundation" in yml and "foundation_model: /ddnB/" in yml
     sums = (out / "data" / "SHA256SUMS").read_text().split("\n")
     assert len([s for s in sums if s]) == 4
+    for f in ("train.extxyz", "valid.extxyz", "test.extxyz", "dataset.json", "SHA256SUMS"):
+        assert b"\r" not in (out / "data" / f).read_bytes()
+    assert (out / ".gitattributes").read_bytes() == b"data/** -text\n"
 
 
 def test_refuses_windows_cluster_path(tmp_path):

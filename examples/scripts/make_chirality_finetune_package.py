@@ -155,8 +155,11 @@ def main(argv=None) -> int:
     (out / "data").mkdir(parents=True)
     sums = []
     for f in ("train.extxyz", "valid.extxyz", "test.extxyz", "dataset.json"):
-        shutil.copyfile(ds / f, out / "data" / f)
+        # LF bytes, hashed as written: ase writes CRLF on Windows, and git's autocrlf would turn that into LF on the
+        # way to LONI, failing the job's hash check (desk fix at intake of package 121)
+        (out / "data" / f).write_bytes((ds / f).read_bytes().replace(b"\r\n", b"\n"))
         sums.append(f"{sha256(out / 'data' / f)}  {f}")
+    lf(out / ".gitattributes", "data/** -text\n")   # the desk repo must keep data/ byte-exact
     lf(out / "data" / "SHA256SUMS", "\n".join(sums) + "\n")
     lf(out / "export.list", "results/*\nlogs/*\nrun/*.log\nrun/results/*\n")
     files = rep["files"]
