@@ -281,6 +281,11 @@ reasons are in §9.
   - Next: the fine-tune itself (`prepare_mace_finetune.py --overrides examples/chirality/finetune_overrides.json`,
     then `run_mace_pilot.py --execute`), ≈ 8–10 GPU-h. It needs the owner's OK. Since 2026-11-12 the laptop's CPU
     and GPU are shared with other agents (CPU cap 4 threads; one D3 export already hit a GPU out-of-memory).
+  - The owner chose LONI over the laptop for the fine-tune (2026-11-12). The package is staged, not sent:
+    `LONI_staging/chiral_ft1_mace_mba2pbi4`, with hand-off `HANDOFF_TO_DISPATCH_chiral_ft1.md`.
+    - Generator: `examples/scripts/make_chirality_finetune_package.py`.
+    - Job: one gpu2 GPU, ≤ 8 h, estimate 1–3 GPU-h. The 2.6 MB dataset is inside the package.
+    - Scoring against the criteria (`score_chirality_mlip.py`) runs locally after the export.
 
 ## 1. Hypothesis under test
 
