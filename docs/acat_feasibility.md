@@ -199,6 +199,31 @@ Run: 150 epochs (the cap; the validation loss was still falling slowly), 12.4 mi
 
 What this does and does not show. It shows that 13 single points on this interface are enough to remove most of the foundation model's error on unseen arrangements of the same kind. It does not validate the model: six test frames, one split, one seed, all geometries produced by the foundation model, and nothing tested away from this slab and molecule. Next, in order: (1) repeat as a leave-family-out cross-validation so all 16 arrangements are tested once; (2) re-relax the pool with the fine-tuned model plus D3 and see how far the minima move and whether the order holds; (3) DFT single points at a few of the *new* minima, which is the first test at geometries this model chose. Step 3 needs a go-ahead; 1 and 2 are local.
 
+## 8d. Cross-validation and re-relaxation (2026-11-12)
+
+**Package 110 complete (22/22).** With `asbuilt_02` the pre-set gate is evaluated on all 20 structures and is not passed by the foundation model: two-melamine relative energy MAE 0.23 eV, worst 0.48 eV; Spearman 0.97; top-3 overlap 2; near-molecule force RMSE 0.22 eV/Å, mean cos 0.15 (`data/cache/adsearch/v1/audit_110_full.json`). Receipt filed with the desk.
+
+**Leave-arrangements-out cross-validation** (`cv_audit_finetune.py`, five fine-tunes with the §8b configuration, every arrangement predicted once by a model that never saw it or anything from the same start; dataset_v1, so without `asbuilt_02`):
+
+| Out of fold | Threshold | Foundation | Fine-tuned |
+|---|---|---|---|
+| Relative energy within each fold, MAE / worst | ≤ 0.10 / ≤ 0.20 eV | | 0.06–0.09 / 0.06–0.18 (all five folds pass) |
+| Relative energy, 16 two-melamine frames pooled over the five models, MAE / worst | ≤ 0.10 / ≤ 0.20 eV | 0.23 / 0.49 | 0.10 / 0.21 |
+| Spearman, same 16 | ≥ 0.8 | 0.97 | 0.97 |
+| Force RMSE near the molecules, 686 atoms pooled | ≤ 0.05 eV/Å | 0.21 | 0.042 |
+| Mean cos near the molecules | ≥ 0.9 | 0.11 | 0.97 |
+
+Forces pass out of sample. Energies sit at the thresholds: inside a fold they pass, pooled they are at the limit (pooling compares five different models on one scale, which adds error of its own). The fine-tuned models still compress the scale somewhat (highest relaxed arrangement 1.77 eV in DFT, 1.37 eV out of fold). Single-molecule modes: DFT order reproduced, MAE 0.09 eV.
+
+**Re-relaxation of the pool with the fine-tuned model** (`rerelax_pool.py`, model `ft110_v1` + D3, started from the foundation model's minima, same free atoms, fmax 0.05 eV/Å): all 17 converged (31–194 steps), all molecules intact, frozen atoms unmoved.
+
+- **The foundation minima were not minima of the better model.** Every structure dropped by 0.47–1.08 eV; molecule atoms moved 0.08–0.90 Å and slab atoms up to 0.46 Å. About 0.5 eV of each drop is common to all structures (the surface region relaxing, which the bare slab would share; the slab was not re-relaxed here). The rest, up to 0.6 eV, is specific to the weakly bound arrangements, which moved most.
+- **Pb–N contacts shortened everywhere:** 2.57–2.59 → 2.52–2.55 Å for ring-N bonds, and by 0.04–0.17 Å for the looser ones.
+- **Order after re-relaxation:** legacy C stays lowest; legacy A and random 00 are now tied (0.17 and 0.18 eV); then legacy B (0.50). The spread shrinks from 1.79 eV (this model at the old geometries) to 1.23 eV, because the high-energy arrangements gained most. Rank correlation with the foundation order 0.95.
+- **Reading of the audit in this light:** part of the 2.05 eV DFT spread at the foundation geometries was the foundation model leaving weakly bound molecules in poor positions, not only an energy-scale error.
+
+**Not validated:** these new geometries are up to 0.9 Å from anything the fine-tuned model was trained or tested on. Whether its energies there are right needs DFT single points at the new minima (same protocol as package 110). Proposed, not prepared: eight statics, the four lowest plus four that moved most (legacy C, legacy A, random 00, legacy B; random 02, 03, 04, 07), about 60–65 node-h at the measured 7.7 node-h each; or all 17 plus a slab relaxed with the same model, about 140 node-h, which would also give a second, independent fine-tuning set.
+
 ## 9. Reproduce
 
 ```
