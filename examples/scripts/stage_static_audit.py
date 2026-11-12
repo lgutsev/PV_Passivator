@@ -65,7 +65,11 @@ def main(argv=None) -> int:
         return "\n".join(keep + ["NELM = 4", "LCHARG = .FALSE.", "LVHAR = .FALSE."]) + "\n"
     big = max((j for j in m["jobs"].values() if j["role"] == "complex"), key=lambda j: j["nelect"])
     big_name = next(n for n, j in m["jobs"].items() if j is big)
-    stage_inputs("smoke", src / big_name / "static", exe_for(big["kpoints"]), smoke_incar)
+    has_smoke, has_ref = "smoke" in stages, bool(lists["audit_ref"])
+    if has_smoke:
+        stage_inputs("smoke", src / big_name / "static", exe_for(big["kpoints"]), smoke_incar)
+    if not has_ref:
+        del lists["audit_ref"]
 
     for k, rows in lists.items():
         lf(out / "lists" / f"{k}.txt", "".join(f"{r}\n" for r in rows))
@@ -87,12 +91,14 @@ def main(argv=None) -> int:
     row = ('sleep $(( (SLURM_ARRAY_TASK_ID % {P}) * 45 ))\n'
            'job=$(sed -n "$((SLURM_ARRAY_TASK_ID + 1))p" lists/{L}.txt)\n[ -n "$job" ] || {{ echo "no job for task '
            '$SLURM_ARRAY_TASK_ID" >&2; exit 2; }}\nrun_step "$job" static static')
-    slurm("run_audit_smoke.slurm", "smoke", f"time one SCF step of the largest structure ({big_name}, NELM=4)",
-          "run_step smoke static smoke")
-    slurm("run_audit_statics.slurm", "static_slab", "single points of the slab and every audited structure",
+    if has_smoke:
+        slurm("run_audit_smoke.slurm", "smoke", f"time one SCF step of the largest structure ({big_name}, NELM=4)",
+              "run_step smoke static smoke")
+    slurm("run_audit_statics.slurm", "static_slab", "single points of every audited structure",
           row.format(L="audit_slab", P=max(1, stages["static_slab"].get("max_parallel", 1))), "audit_slab")
-    slurm("run_audit_ref.slurm", "static_ref", "single point of the isolated molecule",
-          row.format(L="audit_ref", P=1), "audit_ref")
+    if has_ref:
+        slurm("run_audit_ref.slurm", "static_ref", "single point of the isolated molecule",
+              row.format(L="audit_ref", P=1), "audit_ref")
     lf(out / "export.list", "outputs/*\nlogs/*\n")
     lf(out / "logs" / ".keep", "")
     shutil.copy(src / "manifest.json", out / "manifest.json")
@@ -103,16 +109,19 @@ def main(argv=None) -> int:
         f"# {pkg}", "", m["title"], "",
         "Prepared by PV_Passivator (`examples/scripts/prepare_static_audit.py`, staged by `stage_static_audit.py`). "
         "Nothing was submitted.", "",
-        f"{len(lists['audit_slab'])} slab-type single points ({big['natoms']} atoms at most, Γ only, `vasp_gam`) and "
-        f"{len(lists['audit_ref'])} molecule single point. No relaxation: every POSCAR is the geometry at which an "
+        f"{len(lists['audit_slab'])} slab-type single points ({big['natoms']} atoms at most, Γ only, `vasp_gam`)"
+        + (" and 1 molecule single point" if has_ref else "")
+        + ". No relaxation: every POSCAR is the geometry at which an "
         "MLIP's energy and forces were stored, and the DFT numbers are compared with them atom by atom.", "",
         "## Commands, in order (from this directory)", "",
-        f"1. `sbatch run_audit_smoke.slurm` (1 job, {stages['smoke']['nodes']} nodes, ≤ {stages['smoke']['time']}; "
-        f"est. {cost.get('smoke', '?')} node-h). Read `outputs/smoke/static/timing.txt` and size the next stage from it.",
+        *([f"1. `sbatch run_audit_smoke.slurm` (1 job, {stages['smoke']['nodes']} nodes, ≤ {stages['smoke']['time']}; "
+           f"est. {cost.get('smoke', '?')} node-h). Read `outputs/smoke/static/timing.txt` and size the next stage from it."]
+          if has_smoke else []),
         f"1. `sbatch run_audit_statics.slurm` ({len(lists['audit_slab'])} jobs, array %{ss.get('max_parallel', '?')}, "
-        f"{ss['nodes']} nodes each, ≤ {ss['time']}; est. {cost.get('static_slab', '?')} node-h). Task 0 is the bare slab.",
-        f"1. `sbatch run_audit_ref.slurm` (1 job, {stages['static_ref']['nodes']} node, ≤ {stages['static_ref']['time']}; "
-        f"est. {cost.get('static_ref', '?')} node-h). Can run alongside.", "",
+        f"{ss['nodes']} nodes each, ≤ {ss['time']}; est. {cost.get('static_slab', '?')} node-h)."
+        + (" Task 0 is the bare slab." if "slab" in m["jobs"] else ""),
+        *([f"1. `sbatch run_audit_ref.slurm` (1 job, {stages['static_ref']['nodes']} node, ≤ {stages['static_ref']['time']}; "
+           f"est. {cost.get('static_ref', '?')} node-h). Can run alongside."] if has_ref else []), "",
         "Every step writes `outputs/<job>/static/DONE` only when EDIFF is reached and vasprun.xml is complete. Steps "
         "already DONE are skipped, so any script can be resubmitted safely. A static that hits the walltime saves its "
         "outputs and must simply be resubmitted with more time.", "",
@@ -127,9 +136,10 @@ def main(argv=None) -> int:
            for p in sorted(out.rglob("*")) if p.is_file() and p.name != "package.json"}
     lf(out / "package.json", json.dumps({
         "package": pkg, "generator": "PV_Passivator stage_static_audit.py", "jobs": len(m["jobs"]),
-        "stages": {"smoke": 1, **{k: len(v) for k, v in lists.items()}}, "cost_estimate_node_h": cost,
+        "stages": {**({"smoke": 1} if has_smoke else {}), **{k: len(v) for k, v in lists.items()}},
+        "cost_estimate_node_h": cost,
         "submitted": False, "files_sha256": sha}, indent=1) + "\n")
-    print(f"staged {pkg}: {len(m['jobs']) + 1} runs in 3 stages -> {out}")
+    print(f"staged {pkg}: {len(m['jobs']) + int(has_smoke)} runs -> {out}")
     return 0
 
 

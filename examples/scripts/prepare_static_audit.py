@@ -45,7 +45,9 @@ THRESHOLDS = {
 }
 DEFAULTS = {"profile_family": "r2scan_d3bj_v1", "min_interatomic_A": 0.75, "kpoints": [1, 1, 1], "ref_box": 25.0,
             "parallel": {"slab": {"NCORE": 16, "KPAR": 1}, "ref": {"NCORE": 8, "KPAR": 1}},
-            "static_overrides": {"LREAL": ".FALSE.", "LCHARG": ".FALSE.", "LVHAR": ".FALSE."}}
+            "static_overrides": {"LREAL": ".FALSE.", "LCHARG": ".FALSE.", "LVHAR": ".FALSE."},
+            # False: do not run the bare slab and the molecule again; name the package that already has them
+            "references": True, "references_in": None}
 
 
 def _sha(p: Path) -> str:
@@ -70,10 +72,17 @@ def prepare(pool: Path, out: Path, cfg: dict, overwrite: bool) -> dict:
                    overrides=ov_slab, overwrite=overwrite)
     dipol = s0.incar["DIPOL"]
     specs["slab"] = s0
-    man["jobs"]["slab"] = {"static": "slab/static", "role": "bare_slab", "kpoints": cfg["kpoints"], "natoms": len(slab),
-                           "nelect": s0.nelect, "group": "slab", "source": summ["references"]["slab"]["file"],
-                           "model_energy_eV": summ["references"]["slab"]["model_energy_eV"],
-                           "structure_hash": s0.structure_hash}
+    if cfg.get("references", True):
+        man["jobs"]["slab"] = {"static": "slab/static", "role": "bare_slab", "kpoints": cfg["kpoints"], "natoms": len(slab),
+                               "nelect": s0.nelect, "group": "slab", "source": summ["references"]["slab"]["file"],
+                               "model_energy_eV": summ["references"]["slab"]["model_energy_eV"],
+                               "structure_hash": s0.structure_hash}
+    else:                                   # written only to fix the dipole centre; the static already exists elsewhere
+        import shutil
+        shutil.rmtree(out / "slab")
+        man["notes"].append(f"No reference statics here: the bare slab (structure_hash {s0.structure_hash}) and the "
+                            f"isolated molecule are in {cfg.get('references_in') or 'an earlier package'}; the DIPOL "
+                            "centre is that slab's.")
     for rec in summ["structures"]:
         f = pool / rec["file"]
         a = read(f)
@@ -98,14 +107,15 @@ def prepare(pool: Path, out: Path, cfg: dict, overwrite: bool) -> dict:
             "model_final_state": rec.get("final_state"), "model_converged": rec.get("converged"),
             "model_energy_eV": rec["model_energy_eV"], "source": rec["file"], "source_sha256_16": _sha(f),
             "structure_hash": s.structure_hash, "min_interatomic_A": round(float(d.min()), 3)}
-    mol = read(pool / summ["references"]["molecule"]["file"])
-    sm = write_job(mol, out / "ref_molecule" / "static", f"{fam}/molecule_static", "reference", kpoints=[1, 1, 1],
-                   overrides={**cfg["parallel"]["ref"], "LREAL": cfg["static_overrides"]["LREAL"]}, overwrite=overwrite)
-    man["jobs"]["ref_molecule"] = {"static": "ref_molecule/static", "role": "reference", "kpoints": [1, 1, 1],
-                                   "natoms": len(mol), "nelect": sm.nelect, "group": "molecule",
-                                   "model_energy_eV": summ["references"]["molecule"]["model_energy_eV"],
-                                   "source": summ["references"]["molecule"]["file"],
-                                   "structure_hash": sm.structure_hash}
+    if cfg.get("references", True):
+        mol = read(pool / summ["references"]["molecule"]["file"])
+        sm = write_job(mol, out / "ref_molecule" / "static", f"{fam}/molecule_static", "reference", kpoints=[1, 1, 1],
+                       overrides={**cfg["parallel"]["ref"], "LREAL": cfg["static_overrides"]["LREAL"]}, overwrite=overwrite)
+        man["jobs"]["ref_molecule"] = {"static": "ref_molecule/static", "role": "reference", "kpoints": [1, 1, 1],
+                                       "natoms": len(mol), "nelect": sm.nelect, "group": "molecule",
+                                       "model_energy_eV": summ["references"]["molecule"]["model_energy_eV"],
+                                       "source": summ["references"]["molecule"]["file"],
+                                       "structure_hash": sm.structure_hash}
     problems = check_matched_settings(specs)
     if problems:
         raise SystemExit("slab-type statics are not comparable:\n  " + "\n  ".join(problems))
