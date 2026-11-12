@@ -286,6 +286,40 @@ reasons are in §9.
     - Generator: `examples/scripts/make_chirality_finetune_package.py`.
     - Job: one gpu2 GPU, ≤ 8 h, estimate 1–3 GPU-h. The 2.6 MB dataset is inside the package.
     - Scoring against the criteria (`score_chirality_mlip.py`) runs locally after the export.
+- **Fine-tune ft1 back (2026-11-12): LONI package 121, job 1178376.**
+  - Run: one A100 80 GB, 60/60 epochs in 8.4 min, mace 0.3.15 / torch 2.5.0 (the YAML was checked with 0.3.16).
+  - Model: `D:\MLIP_Custom_Models\MACE\mba2pbi4_chirality_ft1.model`, sha256 `7aa5d279…`, verified. It has a
+    provenance file. Add D3(BJ, r2SCAN) at inference.
+  - Training curve: validation force RMSE 28 → 8.8 meV/Å, still falling slightly at epoch 60; no early stop.
+  - Scores: `data/cache/chirality_scores/ft1.json` and `ft1_relax.json`, against the same criteria as the
+    foundation baseline above.
+
+    | Criterion | Foundation | ft1 | Required | ft1 |
+    |---|---|---|---|---|
+    | Test forces (rac NH₃⁺ scan), worst environment RMSE | 0.181 eV/Å (C) | 0.008 eV/Å (H on N); largest atom 0.070 | ≤ 0.05; none > 0.08 | **pass** |
+    | Valid forces, worst RMSE / largest atom | 0.181 / 0.58 | 0.017 (Pb) / 0.198 (C) | — | (not gated) |
+    | NH₃⁺ rotor, R (train) / rac (test) | 231 / 235 vs 223 / 237 meV | 229 / 246 vs 223 / 237; RMSE 2.7 / 4.2 | max(20 meV, 15 %); ≤ 10 | **pass** |
+    | CH₃ rotor (valid, never trained) | 93 vs 162 meV | 85 vs 162, RMSE 28.8 | same | fail |
+    | Ring torsion, R / rac (train, rigid) | 2259 / 262 vs 3106 / 371 | 2681 / 313 vs 3106 / 371; RMSE 161 / 23 | same | fail |
+    | R − rac, fixed cells | 35.3 vs 51.1 meV/f.u. | 15.4 vs 51.1 | within 10 | fail |
+    | R − rac, free cells | 40.1 vs 75.0 | 65.5 vs 75.0 | within 10 | **pass** |
+    | Relax from the DFT minima (+D3) | 0.12 Å RMS; τ_eq −58 %, τ_org +60 % | < 0.0003 Å; net τ equal to 1e-4; per-link ≤ 1e-4 | same sign, ≤ 25 %, links ≤ 0.02 | pass (but these minima are training data) |
+
+  - Reading:
+    - Forces are fixed everywhere the data reach. The C, N and axial-I errors drop by ~20×, and the held-out rac
+      NH₃⁺ scan passes. So the cation–axial-iodide coupling that failed zero-shot is now learned.
+    - **Energies are the weak point.** The energy RMSE of 0.5–0.7 meV/atom is ≈ 25–35 meV per formula unit
+      (47 atoms) and ≈ 100 meV per 188-atom cell. That is the size of the remaining R − rac (fixed cell) and
+      ring-profile misses.
+      - Cause: the loss weights forces 100 : energy 1.
+      - Fix: a second-stage energy weighting (MACE `swa`, energy weight ~1000 for the last epochs) in the next
+        fine-tune.
+    - The CH₃ rotor is a genuine extrapolation failure. The whole scan sits in valid, so no methyl rotation was
+      ever trained, and the fine-tune left it as soft as the foundation model.
+  - Gate (rule written before training: "a model that passes on the 113 test split only regenerates D8/D9"): the
+    test split passes, both forces and the rac NH₃⁺ profile. **ft1 qualifies only as the D8/D9 configuration
+    generator.** It is not a production model. Its trajectories are not results, and every D8/D9 frame is
+    relabelled by DFT.
 
 ## 1. Hypothesis under test
 
