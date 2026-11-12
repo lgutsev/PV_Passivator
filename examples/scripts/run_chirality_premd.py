@@ -40,12 +40,12 @@ RUNS = {"d8": {"seed": 1, "prod_ps": 3.0}, "d9": {"seed": 101, "prod_ps": 1.0}}
 EQUIL_PS, DT_FS, FRAME_FS, FRICTION = 2.0, 0.5, 100.0, 0.01
 
 
-def make_calc(device="cuda"):
+def make_calc(device="cuda", model=MODEL):
     import torch
     from ase.calculators.mixing import SumCalculator
     from mace.calculators import MACECalculator
     from torch_dftd.torch_dftd3_calculator import TorchDFTD3Calculator
-    mace = MACECalculator(model_paths=str(MODEL), device=device, default_dtype="float32")
+    mace = MACECalculator(model_paths=str(model), device=device, default_dtype="float32")
     d3 = TorchDFTD3Calculator(damping="bj", xc="r2scan", device=device, dtype=torch.float32,
                               cutoff=40.0 * units.Bohr, cnthr=30.0 * units.Bohr)
     return SumCalculator([mace, d3])
@@ -61,7 +61,7 @@ def check(frame, ref_summary) -> str | None:
     return None
 
 
-def run_one(base, key, T, kind, out: Path, calc) -> dict:
+def run_one(base, key, T, kind, out: Path, calc, model_name=MODEL.name) -> dict:
     from ase.md.langevin import Langevin
     from ase.md.velocitydistribution import MaxwellBoltzmannDistribution, Stationary
     spec = RUNS[kind]
@@ -92,7 +92,7 @@ def run_one(base, key, T, kind, out: Path, calc) -> dict:
         err = check(fr, ref)
         fr.info.update({"run": name, "system": key, "T_K": T, "time_fs": (n_eq + (i + 1) * n_frame) * DT_FS,
                         "seed": spec["seed"], "split": "train_pool" if kind == "d8" else "heldout_test",
-                        "generator": "foundation MACE-matpes-r2scan + D3(BJ,40 bohr), configurations only"})
+                        "generator": f"{model_name} + D3(BJ,40 bohr), configurations only"})
         if err:
             status = f"BROKEN at frame {i}: {err}"
             break
@@ -108,9 +108,11 @@ def main(argv=None) -> int:
     ap.add_argument("--pkg105", type=Path, required=True)
     ap.add_argument("--out", type=Path, default=ROOT / "data" / "cache" / "chirality_premd")
     ap.add_argument("--device", default="cuda")
+    ap.add_argument("--model", type=Path, default=MODEL,
+                    help="MACE model (r2SCAN part; D3 is added here), e.g. the fine-tuned mba2pbi4_chirality_ft1.model")
     a = ap.parse_args(argv)
     a.out.mkdir(parents=True, exist_ok=True)
-    calc = make_calc(a.device)
+    calc = make_calc(a.device, a.model)
     summary = []
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
@@ -118,7 +120,7 @@ def main(argv=None) -> int:
             for key in ("R", "rac"):
                 base = read(a.pkg105 / "outputs" / f"{key}_fixcell" / "relax" / "CONTCAR", format="vasp")
                 for T in TEMPS:
-                    rec = run_one(base, key, T, kind, a.out, calc)
+                    rec = run_one(base, key, T, kind, a.out, calc, a.model.name)
                     summary.append(rec)
                     print(json.dumps(rec), flush=True)
     (a.out / "summary.json").write_text(json.dumps(summary, indent=1))
