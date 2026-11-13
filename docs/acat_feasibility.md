@@ -224,6 +224,36 @@ Forces pass out of sample. Energies sit at the thresholds: inside a fold they pa
 
 **Not validated:** these new geometries are up to 0.9 Å from anything the fine-tuned model was trained or tested on. Whether its energies there are right needs DFT single points at the new minima (same protocol as package 110). **Prepared, not submitted (owner: "Prepare 8 statics", 2026-11-12):** eight statics, the four lowest plus four that moved most (legacy C, legacy A, random 00, legacy B; random 02, 03, 04, 07), about 60–65 node-h. Staged as `acat_v1b_vasp_pvpass_mel2_rerelax_statics` with a hand-off note; mock run 8/8. The bare slab and the molecule are not rerun (unchanged, in package 110); the fine-tuned model's float64 energies and forces at these geometries are stored with them (`rerelax_to_audit_pool.py`). With eight structures the rank test (needs ten) is not evaluated; relative energies and forces are. The larger option (all 17 plus a slab relaxed with the same model, about 140 node-h) is not prepared.
 
+## 8e. DFT at the fine-tuned model's own minima (LONI package 120, 2026-11-13)
+
+Eight r2SCAN+D3(BJ) single points at geometries relaxed by `pvpass_mel2_ft110_v1` + D3, all DONE in 35–38 SCF steps (4.0–4.5 h on 2 nodes, about 68 node-h). Analysis as for package 110 (`data/cache/adsearch/v1b/audit_120.json`); the model is the one that chose the geometries, so this is the first test where it was not handed its inputs.
+
+| Test (8 two-melamine structures spanning 1.37 eV in DFT) | Threshold | Result | |
+|---|---|---|---|
+| Relative energy, MAE | ≤ 0.10 eV | 0.053 eV | pass |
+| Relative energy, worst | ≤ 0.20 eV | 0.103 eV | pass |
+| Rank agreement | needs ≥ 10 structures | not evaluated (order identical on these 8; slope 0.88) | n/a |
+| Force RMSE near the molecules (307 atoms) | ≤ 0.05 eV/Å | 0.070 eV/Å | fail |
+| Force direction near the molecules, mean cos | ≥ 0.9 | 0.13 | fail (see below) |
+
+| Structure | DFT, eV above lowest | Model, eV above lowest | Near-molecule force RMSE, eV/Å |
+|---|---|---|---|
+| `rr_legacy_MelMel_C` | 0.000 | 0.000 | 0.058 |
+| `rr_legacy_MelMel` | 0.149 | 0.173 | 0.057 |
+| `rr_pool_00` | 0.257 | 0.178 | 0.090 |
+| `rr_legacy_MelMel_B` | 0.616 | 0.497 | 0.083 |
+| `rr_pool_02` | 0.661 | 0.612 | 0.057 |
+| `rr_pool_03` | 0.837 | 0.745 | 0.073 |
+| `rr_pool_07` | 1.267 | 1.088 | 0.072 |
+| `rr_pool_04` | 1.372 | 1.233 | 0.057 |
+
+- **Energies hold at the model's own minima.** Same order as DFT for all eight, errors 0.02–0.12 eV, and the energy scale is nearly right (slope 0.88, against 0.60 for the foundation model at its minima).
+- **The re-relaxation was real.** Against package 110 at the foundation geometries, DFT itself is lower by 0.37–1.04 eV per structure (the model predicted 0.51–1.08 eV, an overestimate of 0.02–0.21 eV). The weakly bound arrangements gained most in DFT too.
+- **Forces: DFT's residual at these minima is 0.070 eV/Å near the molecules** (0.014 eV/Å in the far field), three times smaller than at the foundation model's minima (0.22) but above the 0.05 threshold. The direction test is not informative here and would fail for any model at its own minimum: the model's forces are below 0.05 eV/Å by construction, so the cosine compares DFT's residual with numerical noise. The meaningful number is the RMSE, and it says the model's minima are still slightly off DFT's.
+- **Status of the pre-set gate:** not passed (force RMSE; rank test not evaluable with eight). Relative energies pass with margin.
+
+Reading: the fine-tuned model is now good enough to rank arrangements of this kind and to pre-relax them close to the DFT minimum, on this slab and molecule. It is not a validated energy model in general. The eight new frames are the first training data away from the foundation model's minima; adding them (holding out whole arrangements again) is the obvious next round and is local. A DFT relaxation from one or two of these minima (tranche V2) remains the only test of binding-mode stability, and has not been prepared.
+
 ## 9. Reproduce
 
 ```
