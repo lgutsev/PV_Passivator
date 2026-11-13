@@ -254,6 +254,29 @@ Eight r2SCAN+D3(BJ) single points at geometries relaxed by `pvpass_mel2_ft110_v1
 
 Reading: the fine-tuned model is now good enough to rank arrangements of this kind and to pre-relax them close to the DFT minimum, on this slab and molecule. It is not a validated energy model in general. The eight new frames are the first training data away from the foundation model's minima; adding them (holding out whole arrangements again) is the obvious next round and is local. A DFT relaxation from one or two of these minima (tranche V2) remains the only test of binding-mode stability, and has not been prepared.
 
+## 8f. Fine-tune round 2: packages 110 + 120 (2026-11-13)
+
+Dataset `dataset_v2` (`export_audit_frames.py --also`): all 30 frames of the two packages (22 + 8), same target and alignment as before; a re-relaxed structure `rr_X` is in the family of `X`. Same five folds as §8d, same configuration, so each arrangement, in all its versions (foundation minimum, unrelaxed start, re-relaxed), is predicted by a model that saw none of them. 1 h 40 min of GPU for the five folds.
+
+| Out of fold | Threshold | Round 1 (110 only) | Round 2 (110 + 120) |
+|---|---|---|---|
+| Relative energy, two-melamine frames pooled, MAE / worst | ≤ 0.10 / ≤ 0.20 eV | 0.104 / 0.209 (16 frames) | **0.073 / 0.175** (25 frames) |
+| Same, the 14 relaxed package-110 frames only | | (0.10 / 0.21 with the two as-built) | 0.073 / 0.157, slope 0.88 |
+| Same, the 8 re-relaxed frames only | | not in round 1 | 0.069 / 0.169 |
+| Spearman, pooled | ≥ 0.8 | 0.97 | 0.99 |
+| Force RMSE near the molecules, 17 relaxed package-110 frames | ≤ 0.05 eV/Å | 0.033 | 0.035 |
+| Force RMSE near the molecules, 8 re-relaxed frames | ≤ 0.05 eV/Å | (0.070 for ft110_v1 at its own minima, not out of fold) | **0.043** |
+| Force RMSE near the molecules, unrelaxed starts | ≤ 0.05 eV/Å | 0.088, 0.072 (two frames) | 0.079, 0.068, **0.283** (`asbuilt_02`) |
+| Per fold: relative energy MAE / worst | | 0.06–0.09 / 0.06–0.18 | 0.03–0.06 / 0.04–0.15 |
+
+- **Energies now pass out of sample with margin**, and the scale is no longer compressed (slope 0.88 against 0.77 in round 1). Single-molecule modes: order right, MAE 0.07 eV.
+- **Forces pass on every relaxed geometry**, including the re-relaxed ones the model family had never been tested on in round 1.
+- **Forces fail far from equilibrium.** `asbuilt_02`, an unrelaxed start with DFT forces up to 11 eV/Å, is at 0.28 eV/Å near the molecules when held out; the two milder starts are at 0.07–0.08. Pooled over everything including these three, the near-molecule RMSE is 0.070 eV/Å, above the threshold; without them it is 0.03–0.04. The training set has three such frames in total, one per fold at most.
+
+**Round-2 model for use:** `data/cache/adsearch/ft110/run_v2/run/pvpass_mel2_ft_v2.model` (git-ignored; sha256 `d5054b1c16b34232…`), trained on 27 frames with 3 for validation (random 03 and its re-relaxed version, random 09). It has no held-out test of its own; the cross-validation above is the estimate of its error.
+
+**Where this leaves the model question.** For two melamine on this face, near relaxed geometries: energy differences to about 0.07 eV (worst case under 0.2), forces to about 0.04 eV/Å near the molecules, order as DFT. That meets the thresholds fixed in §8 for the ranking use. Not established: accuracy during the early steps of a relaxation from an as-built start (the far-from-equilibrium frames), other coverages or molecules, and binding-mode stability under DFT relaxation (tranche V2).
+
 ## 9. Reproduce
 
 ```

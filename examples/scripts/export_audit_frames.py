@@ -57,8 +57,10 @@ def read_frame(d: Path):
 
 def families(names, pool: Path, man: dict, same_minimum: float) -> dict:
     """name -> family id.  pool_NN/asbuilt_NN share a family; same-minimum structures are merged."""
-    fam = {n: n.replace("asbuilt_", "pool_") for n in names}
-    cplx = [n for n in names if man["jobs"][n]["role"] == "complex" and man["jobs"][n].get("relaxed_by_model")]
+    # asbuilt_NN is the unrelaxed start of pool_NN; rr_X is X relaxed again by another model: one family each
+    fam = {n: n.removeprefix("rr_").replace("asbuilt_", "pool_") for n in names}
+    cplx = [n for n in names if man["jobs"][n]["role"] == "complex" and man["jobs"][n].get("relaxed_by_model")
+            and not n.startswith("rr_")]
     for i, a in enumerate(cplx):
         for b in cplx[:i]:
             ja, jb = man["jobs"][a], man["jobs"][b]
@@ -71,14 +73,25 @@ def families(names, pool: Path, man: dict, same_minimum: float) -> dict:
     return fam
 
 
-def export(package, pool, out, test, valid, d3=None, align=None, device="cpu", same_minimum=0.01):
-    root, pool, out = Path(package).resolve(), Path(pool), Path(out)
+def export(package, pool, out, test, valid, d3=None, align=None, device="cpu", same_minimum=0.01, also=()):
+    out = Path(out)
     if out.exists() and any(out.iterdir()):
         raise ValueError("output directory must be new or empty")
-    man = json.loads((root / "manifest.json").read_text())
+    sources = [(Path(package).resolve(), Path(pool))] + [(Path(a).resolve(), Path(b)) for a, b in also]
+    man = {"jobs": {}}
+    where = {}
+    for r, pl in sources:                       # later packages add jobs; names must be unique across packages
+        mm = json.loads((r / "manifest.json").read_text())
+        dup = set(mm["jobs"]) & set(man["jobs"])
+        if dup:
+            raise ValueError(f"job names repeated across packages: {sorted(dup)}")
+        man["jobs"].update(mm["jobs"])
+        where.update({n: (r, pl) for n in mm["jobs"]})
+    root, pool = sources[0]
     frames, missing = {}, []
     hamiltonian = None
     for name, j in man["jobs"].items():
+        root, pool = where[name]
         d = root / "outputs" / name / "static"
         try:
             a, e, f, src = read_frame(d)
@@ -107,6 +120,7 @@ def export(package, pool, out, test, valid, d3=None, align=None, device="cpu", s
                       energy_kind="vasp_free_energy", config_type=j["role"], group=j["group"],
                       selection=j.get("selection", j["role"]), label_grade=False)
         frames[name] = a
+    root, pool = sources[0]
     fam = families(list(frames), pool, man, same_minimum)
     known = set(fam.values())
     resolve = lambda xs: {fam[x] if x in fam else x for x in xs}
@@ -125,7 +139,8 @@ def export(package, pool, out, test, valid, d3=None, align=None, device="cpu", s
         part[split].append(a)
     report = {"schema": "pvpass_audit_frames/1", "label_grade": False,
               "purpose": "fine-tune and test an MLIP on audit single points; geometries are MODEL geometries, not DFT minima",
-              "package": str(root), "manifest_sha256": sha256(root / "manifest.json"), "hamiltonian": hamiltonian,
+              "packages": [{"package": str(r), "manifest_sha256": sha256(r / "manifest.json"), "pool": str(pl)}
+                           for r, pl in sources], "hamiltonian": hamiltonian,
               "missing": missing, "families": {f: sorted(n for n in fam if fam[n] == f) for f in sorted(known)},
               "splits": {s: sorted(a.info["job"] for a in ats) for s, ats in part.items()}}
     every = [a for ats in part.values() for a in ats]
@@ -196,8 +211,10 @@ def main(argv=None) -> int:
     ap.add_argument("--align-to")
     ap.add_argument("--device", default="cpu")
     ap.add_argument("--same-minimum", type=float, default=0.01)
+    ap.add_argument("--also", nargs=2, action="append", default=[], metavar=("PACKAGE", "POOL"),
+                    help="a further returned package and its pool; repeatable")
     a = ap.parse_args(argv)
-    r = export(a.package, a.pool, a.out, a.test, a.valid, a.subtract_d3, a.align_to, a.device, a.same_minimum)
+    r = export(a.package, a.pool, a.out, a.test, a.valid, a.subtract_d3, a.align_to, a.device, a.same_minimum, a.also)
     print(json.dumps({k: r[k] for k in ("splits", "families", "missing", "target", "files") if k in r}
                      | ({"alignment": r["alignment"]} if "alignment" in r else {}), indent=1))
     return 0
