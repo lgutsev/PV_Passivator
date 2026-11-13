@@ -346,6 +346,20 @@ reasons are in §9.
     files are kept as `*.broken_mx3.8`.
   - Unexplained: the rac D9 runs average +13–15 % above the thermostat target in both models (same seed); R runs
     are within ±5 %. NVE shows no heating, so this is noted but not acted on.
+  - Rerun with `--mx-cut 4.3 --redo-broken` (owner: "Yes, rerun them", 2026-11-13; CPU capped at 2 threads, idle
+    priority, while the owner used the laptop). 10 of 12 runs are now complete.
+    - Both R 358 K runs stopped again, D8 at frame 15 and D9 at frame 4, this time because an ammonium N–H passed
+      the topology builder's covalent tolerance (1.15 × (r_N + r_H) ≈ 1.17 Å) between saved frames.
+    - The saved frames show N–H ≤ 1.15 Å and H…I ≥ 2.17 Å throughout, far from the plan's proton-transfer
+      criterion (H…I < 1.9 Å).
+    - Most likely the same kind of tolerance artifact as the Pb–I one, but unproven: the breaking frame isn't
+      saved. Not pursued, to keep the laptop free.
+  - **Label tranche B staged** (not sent): `LONI_staging/chiral_labels_b_vasp_mba2pbi4_md`, with hand-off
+    `HANDOFF_TO_DISPATCH_chiral_labels_b.md`.
+    - Generator: `examples/scripts/prepare_chirality_md_labels.py` (test `tests/test_chirality_md_labels.py`).
+    - 219 single points: D8 R 75 / rac 90, D9 R 24 / rac 30. R 358 K contributes 15 + 4.
+    - Same profile as 113. About 30–45 node-h.
+    - Every frame was re-checked at staging, and none was refused.
 
 ## 1. Hypothesis under test
 
