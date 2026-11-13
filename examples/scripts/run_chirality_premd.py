@@ -51,9 +51,9 @@ def make_calc(device="cuda", model=MODEL):
     return SumCalculator([mace, d3])
 
 
-def check(frame, ref_summary) -> str | None:
+def check(frame, ref_summary, mx_cut=3.8) -> str | None:
     try:
-        s = ch.build_topology(frame).summary()
+        s = ch.build_topology(frame, mx_cut=mx_cut).summary()
     except ch.TopologyError as e:
         return f"topology: {e}"
     if s["stereocentres"] != ref_summary["stereocentres"] or s["n_molecules"] != ref_summary["n_molecules"]:
@@ -61,16 +61,21 @@ def check(frame, ref_summary) -> str | None:
     return None
 
 
-def run_one(base, key, T, kind, out: Path, calc, model_name=MODEL.name) -> dict:
+def run_one(base, key, T, kind, out: Path, calc, model_name=MODEL.name, mx_cut=3.8, redo_broken=False) -> dict:
     from ase.md.langevin import Langevin
     from ase.md.velocitydistribution import MaxwellBoltzmannDistribution, Stationary
     spec = RUNS[kind]
     name = f"{key}_{T}K_{kind}_s{spec['seed']}"
     if (out / f"{name}.DONE").exists():
-        return json.loads((out / f"{name}.DONE").read_text())
+        rec = json.loads((out / f"{name}.DONE").read_text())
+        if not (redo_broken and rec["status"] != "ok"):
+            return rec
+        (out / f"{name}.DONE").rename(out / f"{name}.DONE.broken_mx{rec.get('mx_cut_A', 3.8)}")
+        if (out / f"{name}.extxyz").exists():
+            (out / f"{name}.extxyz").rename(out / f"{name}.extxyz.broken_mx{rec.get('mx_cut_A', 3.8)}")
     atoms = base.copy()
     atoms.calc = calc
-    ref = ch.build_topology(base).summary()
+    ref = ch.build_topology(base, mx_cut=mx_cut).summary()
     MaxwellBoltzmannDistribution(atoms, temperature_K=T, rng=np.random.default_rng(spec["seed"]))
     Stationary(atoms)
     dyn = Langevin(atoms, DT_FS * units.fs, temperature_K=T, friction=FRICTION / units.fs,
@@ -89,7 +94,7 @@ def run_one(base, key, T, kind, out: Path, calc, model_name=MODEL.name) -> dict:
         fr.calc = None
         fr.wrap()
         temps.append(float(atoms.get_temperature()))
-        err = check(fr, ref)
+        err = check(fr, ref, mx_cut)
         fr.info.update({"run": name, "system": key, "T_K": T, "time_fs": (n_eq + (i + 1) * n_frame) * DT_FS,
                         "seed": spec["seed"], "split": "train_pool" if kind == "d8" else "heldout_test",
                         "generator": f"{model_name} + D3(BJ,40 bohr), configurations only"})
@@ -98,7 +103,7 @@ def run_one(base, key, T, kind, out: Path, calc, model_name=MODEL.name) -> dict:
             break
         write(traj, fr, format="extxyz", append=True)
     rec = {"run": name, "status": status, "frames": len(temps) if status == "ok" else len(temps) - 1,
-           "mean_T_K": round(float(np.mean(temps)), 1) if temps else None, "minutes": round((time.time() - t0) / 60, 1)}
+           "mean_T_K": round(float(np.mean(temps)), 1) if temps else None, "minutes": round((time.time() - t0) / 60, 1), "mx_cut_A": mx_cut}
     (out / f"{name}.DONE").write_text(json.dumps(rec))
     return rec
 
@@ -110,6 +115,9 @@ def main(argv=None) -> int:
     ap.add_argument("--device", default="cuda")
     ap.add_argument("--model", type=Path, default=MODEL,
                     help="MACE model (r2SCAN part; D3 is added here), e.g. the fine-tuned mba2pbi4_chirality_ft1.model")
+    ap.add_argument("--mx-cut", type=float, default=3.8,
+                    help="Pb-I distance counted as a bond in the integrity check (6th Pb-I <= 4.1 A, 7th >= 5.4 A in all frames and DFT labels so far; 4.3 is the largest both cells accept)")
+    ap.add_argument("--redo-broken", action="store_true", help="rerun runs whose .DONE is not ok (old files kept as *.broken_mx*)")
     a = ap.parse_args(argv)
     a.out.mkdir(parents=True, exist_ok=True)
     calc = make_calc(a.device, a.model)
@@ -120,7 +128,7 @@ def main(argv=None) -> int:
             for key in ("R", "rac"):
                 base = read(a.pkg105 / "outputs" / f"{key}_fixcell" / "relax" / "CONTCAR", format="vasp")
                 for T in TEMPS:
-                    rec = run_one(base, key, T, kind, a.out, calc, a.model.name)
+                    rec = run_one(base, key, T, kind, a.out, calc, a.model.name, a.mx_cut, a.redo_broken)
                     summary.append(rec)
                     print(json.dumps(rec), flush=True)
     (a.out / "summary.json").write_text(json.dumps(summary, indent=1))

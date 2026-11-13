@@ -320,6 +320,32 @@ reasons are in §9.
     test split passes, both forces and the rac NH₃⁺ profile. **ft1 qualifies only as the D8/D9 configuration
     generator.** It is not a production model. Its trajectories are not results, and every D8/D9 frame is
     relabelled by DFT.
+- **D8/D9 with ft1 (2026-11-12/13, owner: "Yes, run it"): the same integrity breaks as the foundation model.**
+  - 12 runs in ~6 h on the laptop GPU (output `data/cache/chirality_premd_ft1`, git-ignored).
+  - Intact: R 173 K D8 (30 frames), rac 173 K D8 (30), and rac D9 at all three temperatures (3 × 10).
+  - The other 7 stopped within 0–2 frames, on the same Pb atoms as the foundation runs (169/170 in R, 89 in rac),
+    each because a sixth Pb–I passed 3.8 Å.
+  - The integration is ruled out. NVE from the R minimum (0.5 ps, initialized at 293 K) conserves energy to
+    −0.01 meV/atom/ps in all four setups, against a 1 meV/atom/ps stop criterion:
+    - float32 + D3 at 40 bohr;
+    - float64 + D3 at 40 bohr;
+    - float64 + full D3;
+    - float64 without D3.
+
+    So neither float32 nor the shortened D3 cutoff heats the system.
+  - **The 3.8 Å coordination cutoff is the problem, not the dynamics.**
+    - Across all 171 MD frames of both models, the sixth Pb–I is ≤ 3.79 Å and the seventh ≥ 5.79 Å.
+    - In the DFT-labelled D6 distortions the sixth reaches 4.10 Å and the seventh stays ≥ 5.43 Å.
+    - So no frame ever lost an iodide. The 3.8 Å value is the topology builder's default and sits inside
+      ordinary thermal Pb–I stretching. Rough estimate: 0.12 eV for +0.45 Å at k ≈ 1 eV/Å², about 5 kT at
+      293 K over ~24 bonds per cell.
+  - The plan's stop condition reads "any Pb loses or gains an I (coordination != 6)". It stays as written; only
+    its distance definition changes.
+  - Proposal: count Pb–I bonds out to 4.3 Å, the largest cutoff both cells accept (half-cell-width guard). Rerun
+    only the broken runs with `run_chirality_premd.py --mx-cut 4.3 --redo-broken`, about 3–4 GPU-h; the old
+    files are kept as `*.broken_mx3.8`.
+  - Unexplained: the rac D9 runs average +13–15 % above the thermostat target in both models (same seed); R runs
+    are within ±5 %. NVE shows no heating, so this is noted but not acted on.
 
 ## 1. Hypothesis under test
 
