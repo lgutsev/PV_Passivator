@@ -277,6 +277,33 @@ Dataset `dataset_v2` (`export_audit_frames.py --also`): all 30 frames of the two
 
 **Where this leaves the model question.** For two melamine on this face, near relaxed geometries: energy differences to about 0.07 eV (worst case under 0.2), forces to about 0.04 eV/Å near the molecules, order as DFT. That meets the thresholds fixed in §8 for the ranking use. Not established: accuracy during the early steps of a relaxation from an as-built start (the far-from-equilibrium frames), other coverages or molecules, and binding-mode stability under DFT relaxation (tranche V2).
 
+## 8g. Relaxation-threshold study (2026-11-13): the force threshold is not the control; the optimizer is
+
+Question: how tight must a relaxation be before energy differences stop changing. `fmax_study.py` relaxes each structure through a ladder of thresholds (0.1, 0.05, 0.03, 0.02, 0.01 eV/Å) in one trajectory, once with FIRE and once with LBFGS, same free atoms, round-2 model + D3 in float32, and gives every saved geometry one float64 energy. Four two-melamine arrangements: legacy C (lowest), random 00, 02 and 04.
+
+**Run 1, pool geometries as they were (cap 250 steps).** No relaxation got below 0.03 eV/Å. At the same threshold of 0.05 eV/Å LBFGS is 0.74–0.85 eV below FIRE for all three arrangements that reached it. In the LBFGS runs surface formamidinium cations reorient (38 H, 7–10 C and N atoms by more than 0.5 Å, up to 2.1 Å), surface iodides shift by up to 1.1 Å and the molecules by 0.5–0.7 Å rms; FIRE leaves everything within 0.45 Å of the start. Gaps between arrangements at 0.05 eV/Å agree between the optimizers to 0.06–0.11 eV; at 0.1 eV/Å one gap differs by 0.85 eV and two arrangements swap.
+
+**Bare slab (cap 400).** The same happens without molecules: LBFGS converges to 0.01 eV/Å in 214 steps, 0.50 eV below where FIRE stops (0.02 eV/Å after 49 steps, never 0.01), with surface atoms moved by up to 1.7 Å. The slab every pool structure was built on is not a minimum of the model.
+
+**Run 2, the four arrangements placed on the LBFGS-relaxed slab** (`transplant_slab.py`; closest molecule–slab contact 1.97 Å; cap 400). Pre-relaxing the slab does not remove the effect:
+
+| Arrangement | FIRE end point (fmax reached) | LBFGS end point (fmax reached) | LBFGS − FIRE, round-2 model | same, foundation model | Largest molecule-atom move, LBFGS |
+|---|---|---|---|---|---|
+| legacy C | −9311.094 (0.02) | −9311.802 (0.02) | −0.71 eV | −0.80 | 3.3 Å |
+| random 00 | −9310.836 (0.03) | −9311.487 (0.03) | −0.65 | −0.86 | 2.0 Å |
+| random 02 | −9310.435 (0.03) | −9310.508 (0.05) | −0.07 | −0.10 | 1.5 Å |
+| random 04 | −9309.869 (0.02) | −9311.150 (0.05) | −1.28 | −1.46 | 5.0 Å |
+
+- No run reached 0.01 eV/Å in 400 steps; the LBFGS runs were still descending at the cap.
+- The deep geometries are chemically ordinary: every C–N, C–H, N–H bond list is unchanged, Pb–I coordination is 5–6 as before, the movers are surface FA hydrogens (18 by more than 1 Å in three of four) and the molecules.
+- The foundation model, which never saw the fine-tune data, puts the same sign and nearly the same size on every drop. That argues against a hole dug by the fine-tune, but both models share a parent and neither has a DFT label near these geometries.
+- The order changes at the weak end: shallow legacy C < 00 (+0.26) < 02 (+0.66) < 04 (+1.22); deep legacy C < 00 (+0.32) < 04 (+0.65) < 02 (+1.29). The two lowest keep their order and gap (0.26 against 0.32 eV).
+
+**What follows.**
+1. "The relaxed energy of an arrangement" is not defined at the 0.1 eV level by a FIRE run to any threshold tried here. Earlier rankings (§8, §8d, packages 110 and 120) compare shallow FIRE end points; they stand as model-against-DFT tests at fixed geometries, not as a ranking of true minima.
+2. A search benchmark with the §7 relaxation (FIRE, fmax 0.1, 150 steps) would mostly measure how far each candidate slid. It needs LBFGS to 0.02 eV/Å or tighter with several hundred steps per candidate (about 12 min each on the laptop GPU, D3 dominating), which is cluster work at search scale, or a cheaper dispersion term.
+3. The deep minima need DFT before anything is built on them. **Prepared, not submitted:** `acat_v1c_vasp_pvpass_mel2_deepmin_statics`, ten r2SCAN+D3(BJ) statics (the four shallow/deep pairs above and the bare slab shallow/deep; `geoms_to_audit_pool.py`, then the package-120 path), about 75–85 node-h, mock run 10/10, hand-off note marked not authorized.
+
 ## 9. Reproduce
 
 ```
@@ -292,4 +319,4 @@ python examples/scripts/acat_surface_probe.py SLAB_CONTCAR --complex COMPLEX_CON
 - Energies are comparable only at fixed composition, charge and constraints. Other coverages, protonation states or added water need formation free energies with declared reservoirs first; an energy/force MLIP is not a constant-potential model. Water-related extensions are outside this branch.
 - The site list is under-coordinated Pb only; halide and hollow sites, and adsorption into vacancies, are not in the pilot.
 - The 30° / three-tilt grid and three binding modes are a starting library; relaxation, not the grid, decides the final geometry.
-- The relaxation stopping rule (fmax 0.1 eV/Å) is too loose for the 0.10 eV resolution: two optimizers run to that threshold from the same starts in the same model end 0.01–0.34 eV apart (`docs/alchemi_feasibility.md` §7). It must be tightened, to a value not yet determined, before the equal-budget benchmark; the model energies of the V1 pool carry the same uncertainty as minima, though not as fixed-geometry audit points.
+- See §8g: tightening the threshold alone does not fix the following; the optimizer matters more. The relaxation stopping rule (fmax 0.1 eV/Å) is too loose for the 0.10 eV resolution: two optimizers run to that threshold from the same starts in the same model end 0.01–0.34 eV apart (`docs/alchemi_feasibility.md` §7). It must be tightened, to a value not yet determined, before the equal-budget benchmark; the model energies of the V1 pool carry the same uncertainty as minima, though not as fixed-geometry audit points.
