@@ -142,6 +142,31 @@
   - They continue from CONTCAR as job 1176164 (`sbatch --array=1,2,4 run_relax_slabs.slurm`). Tasks 6–10 are running and 11 is queued.
   - The cost now leans toward the middle of the estimate: PEAI is the only complex that finished fast. These ran 216–236 steps, or about 200+ node-h each.
   - **D: caveat:** the D: copies of these folders still hold rev5 files (DONE dated 10-30, `.seg1`/`.seg2`, an old WALLTIME_STOP). Use only files dated 2026-11-07 or later for rev6.
+- **Relax arrays ended (2026-11-14, desk ledger f9c4b95; jobs 1169113 and 1176164):**
+  - Eight relaxes are DONE. PFPAI, TFPACl and THCl hit the walltime a second time. None of the 11 complex statics or the 2 k-checks has run.
+  - The numbers below come from the last rev6 OUTCAR of each job. Max force is taken over free atoms only; the frozen atoms report zero force. ΔE10 is E(last) − E(last − 10).
+
+    | Job | Status | Steps | E0 (eV) | Max force (eV/Å) | ΔE10 (meV) |
+    |---|---|---|---|---|---|
+    | PEAAc | DONE | 205 | −7291.5165 | 0.030 | −1.0 |
+    | PEACl | DONE | 87 | −7251.9759 | 0.030 | −2.8 |
+    | PEATFA | DONE | 181 | −7296.4340 | 0.030 | −2.6 |
+    | PEAI | DONE | 97 | −7269.6569 | 0.030 | **−41.0** |
+    | PFPACl | DONE | 216 | −7204.3048 | 0.029 | −12.2 |
+    | TFPAI | DONE | 104 | −7219.1237 | 0.030 | −9.1 |
+    | PEAI_R8 | DONE | 119 | −7269.6289 | 0.030 | **−31.4** |
+    | TFPAI_R8 | DONE | 116 | −7219.0851 | 0.029 | **−21.2** |
+    | PFPAI | walltime | 238 | −7221.9456 | 0.044 | −3.0 |
+    | TFPACl | walltime | 225 | −7201.4830 | 0.034 | −6.7 |
+    | THCl | walltime | 238 | −7259.6501 | 0.038 | −1.3 |
+
+    PEAAc, PEACl and PEATFA counts are steps in the final segment only. The other counts are full totals.
+  - **The three walltime jobs are flatter than several DONE ones.** Their free-atom max force is 0.034–0.044 eV/Å, against EDIFFG 0.03, and they moved at most 0.01 Å in the last 20 steps.
+  - **DONE does not mean the energy has settled.** PEAI, both R8 tests, PFPACl and TFPAI reached |F| < 0.03 while still dropping 9–41 meV per 10 steps. Soft salt modes keep lowering the energy below the force threshold. That puts a floor of roughly ±0.02–0.04 eV under each complex energy.
+  - **Early read on the freeze test:** the R8 relaxes end 28 meV (PEAI) and 39 meV (TFPAI) above R10. That is above the 0.02 eV criterion, but both R8 runs were still descending. The statics decide it.
+  - **Owner decision pending:**
+    - accept the three walltime CONTCARs with `accept_relax.sh` (they need limits of at least 0.045 eV/Å and 7 meV, above the TFPAI precedent of 0.035 and 5);
+    - or run a third continuation segment.
 - Seven complex inputs change (new structure hashes), and `kcheck_complex_PEAAc` follows the rebuilt PEAAc.
 - The revision-4 outputs of the seven move to `outputs_rev4/` and stay training frames; nothing is deleted.
 - Generate with commit a8442ac or later, with `signal_margin_s: 3600` for `relax_slab`.
