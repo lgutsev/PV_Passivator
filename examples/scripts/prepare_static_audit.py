@@ -177,11 +177,17 @@ def analyze(pkg: Path, pool: Path, reader=None) -> dict:
             raise ValueError(f"{name}: returned geometry differs from the audited one (max {dev:.4f} A)")
         fm = a.arrays["model_forces"][perm]
         ads = (a.arrays["mol_id"] > 0)[perm]
-        d = min_image_distances(a.cell.array, a.pbc, pos, pos[ads]).min(axis=1)
-        near = ads | (d <= 4.0)
+        if ads.any():
+            d = min_image_distances(a.cell.array, a.pbc, pos, pos[ads]).min(axis=1)
+            near = ads | (d <= 4.0)
+        else:                                   # a bare slab audited as a structure: no "near the molecules" region
+            near = np.zeros(len(pos), bool)
         near_dft.append(f[near]), near_ml.append(fm[near]), far_dft.append(f[~near]), far_ml.append(fm[~near])
+        moving = np.linalg.norm(f, axis=1) > 1e-8       # the model's forces are stored for every atom; compare all
         rows[name] = {"group": j["group"], "selection": j["selection"], "E_dft": e, "E_model": j["model_energy_eV"],
-                      "force_rmse_near": float(np.sqrt(((f - fm)[near] ** 2).mean()))}
+                      "force_rmse_near": float(np.sqrt(((f - fm)[near] ** 2).mean())) if near.any() else None,
+                      "force_rmse_all": float(np.sqrt(((f - fm)[moving] ** 2).mean())),
+                      "dft_fmax": float(np.linalg.norm(f, axis=1).max())}
     out = {"schema": "static_audit_report/1", "thresholds": th, "missing": missing, "structures": rows, "groups": {}}
 
     def force_stats(D, M):

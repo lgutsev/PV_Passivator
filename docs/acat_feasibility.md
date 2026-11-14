@@ -304,6 +304,26 @@ Question: how tight must a relaxation be before energy differences stop changing
 2. A search benchmark with the §7 relaxation (FIRE, fmax 0.1, 150 steps) would mostly measure how far each candidate slid. It needs LBFGS to 0.02 eV/Å or tighter with several hundred steps per candidate (about 12 min each on the laptop GPU, D3 dominating), which is cluster work at search scale, or a cheaper dispersion term.
 3. The deep minima need DFT before anything is built on them. **Prepared, not submitted:** `acat_v1c_vasp_pvpass_mel2_deepmin_statics`, ten r2SCAN+D3(BJ) statics (the four shallow/deep pairs above and the bare slab shallow/deep; `geoms_to_audit_pool.py`, then the package-120 path), about 75–85 node-h, mock run 10/10, hand-off note marked not authorized.
 
+## 8h. DFT at the deep minima (LONI package 127, 2026-11-14): the deeper minima are real, and the model holds there
+
+Package `127_vasp_pvpass_mel2_acat_deepmin_statics` (job 1181419): 10/10 done, 32-37 SCF steps, 3.5-4.2 h each on 2 nodes. Outputs under `D:\MLIP_Work_Folder\hpc_smoke_testsW_...`; report `data/cache/adsearch/v1c/audit_127.json`.
+
+| Structure | LBFGS end point minus FIRE end point, DFT | same, round-2 model | Model force RMSE near the molecules, shallow / deep |
+|---|---|---|---|
+| legacy C | -0.822 eV | -0.708 | 0.026 / 0.038 eV/A |
+| random 00 | -0.771 | -0.651 | 0.023 / 0.031 |
+| random 02 | -0.047 | -0.074 | 0.029 / 0.039 |
+| random 04 | -1.459 | -1.281 | 0.026 / 0.066 |
+| bare slab | -0.426 | -0.496 | (all atoms) 0.003 / 0.037 |
+
+- **DFT puts every LBFGS end point below its FIRE end point**, by nearly the amount the model said. The deeper minima are not a model artefact. The model underestimates the drop for the three large cases by 0.11-0.18 eV and overestimates it for the bare slab by 0.07 eV.
+- **Relative energies of the eight two-melamine frames: MAE 0.069 eV, worst 0.109 eV** against thresholds 0.10 / 0.20. None of these geometries, nor anything within 1.5 A of the deep ones, was in the training data.
+- **Forces near the molecules: RMSE 0.037 eV/A pooled** (threshold 0.05); seven of eight frames are at 0.02-0.04, deep random 04 (molecules moved 5 A) at 0.066. The cosine criterion (0.20) is not meaningful here for the reason given in 8e: these are the model's own near-minima, where its forces are close to zero. The report's overall flag is "fail" for that criterion alone.
+- **Order in DFT, shallow set:** legacy C < 00 (+0.26) < 02 (+0.68) < 04 (+1.26). **Deep set:** legacy C < 00 (+0.31) < 04 (+0.62) < 02 (+1.46). The model gives the same two orders (+0.26/+0.66/+1.23 and +0.32/+0.65/+1.29). The swap of 02 and 04 between the sets is real: how deep a relaxation goes changes the ranking of the weakly bound arrangements, in DFT as in the model.
+- DFT forces at these geometries reach 0.23-0.30 eV/A on some atom; none is a DFT minimum.
+
+**Consequences.** (1) A search must relax with LBFGS (or equivalent) well past where FIRE stalls, or it ranks stalled states. (2) The round-2 model is good enough to drive those relaxations on this system: its energy differences at geometries it chose, far from its training set, are within thresholds. (3) The ten frames are new training data from a region the model had not seen (a round 3 would add them). (4) Still not done: no relaxation here reached 0.01 eV/A, so the true minima are lower still by an unknown amount.
+
 ## 9. Reproduce
 
 ```
