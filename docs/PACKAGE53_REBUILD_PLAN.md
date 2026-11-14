@@ -176,6 +176,7 @@
       - The desk's scratch test accepted all three at 0.045 / 7.
       - The accepts, the statics (`--array=1-11%5`) and the k-check were handed to the owner on 2026-11-14.
       - REVISION6/5_2_VERIFICATION.json still list the old accept_relax.sh hash. They are kept as staging-time records, and no code reads them.
+      - **On LONI:** all three were ACCEPTED with the same numbers, and their CONTCAR sha256s match the D: files. The statics run as job 1182151 (tasks 1–11) and the k-check as job 1182152.
     - **Desk check (2026-11-14):** the D: copies hold rev5-era `OSZICAR.seg1/seg2` for these three, and `accept_relax.sh` would prepend them. This changes only the step count it records. dE10 uses the last 10 of 225–238 rev6 steps, and the force comes from the last OUTCAR. If the files are on LONI, the desk appends a `note_steps` line to ACCEPTED; nothing is moved.
 - Seven complex inputs change (new structure hashes), and `kcheck_complex_PEAAc` follows the rebuilt PEAAc.
 - The revision-4 outputs of the seven move to `outputs_rev4/` and stay training frames; nothing is deleted.
