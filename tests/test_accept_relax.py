@@ -124,3 +124,38 @@ def test_labels_use_accepted_relax_but_report_it(tmp_path):
     (row,) = r["reactions"]
     assert row["E_ads_eV"] == pytest.approx(-1.2) and row["owner_accepted_relaxes"] == ["complex_PEACl"]
     assert r["accepted_relaxes"]["complex_PEACl"]["last_max_force_eV_per_A"] == "0.0330"
+
+
+SD_CONTCAR = ("cx\n1.0\n10 0 0\n0 10 0\n0 0 10\nPb I\n1 1\nSelective dynamics\nDirect\n"
+              "0.0 0.0 0.0 T T T\n0.2 0.0 0.0 F F F\n")
+
+
+@needs_bash
+@pytest.mark.parametrize("frozen_force,ok", [(0.30, True), (0.01, True)])
+def test_accept_ignores_frozen_atom_forces(tmp_path, frozen_force, ok):
+    """VASP prints real forces on frozen atoms; the limit applies to free atoms (selective-dynamics T) only."""
+    root = relax_package(tmp_path, last_fmax=0.033, e_tail_meV=4.0)
+    out = root / "outputs" / "cx" / "relax"
+    block = (" POSITION                                       TOTAL-FORCE (eV/Angst)\n"
+             " -----------------------------------------------------------------------------------\n"
+             "      0.00000      0.00000      0.00000         0.03300      0.00000      0.00000\n"
+             f"      2.00000      0.00000      0.00000         {frozen_force:.5f}      0.00000      0.00000\n"
+             " -----------------------------------------------------------------------------------\n")
+    (out / "OUTCAR").write_text(block)
+    for p in (out / "CONTCAR", root / "runs" / "cx" / "relax" / "CONTCAR"):
+        p.write_text(SD_CONTCAR)
+    r = accept(root)
+    assert (r.returncode == 0) == ok, r.stdout + r.stderr
+    rec = (out / "ACCEPTED").read_text()
+    assert "last_max_force_free: 0.0330" in rec and "free_atoms: 1" in rec
+    assert f"last_max_force_all: {max(frozen_force, 0.033):.4f}" in rec
+
+
+@needs_bash
+def test_accept_refuses_free_atom_over_limit_with_selective_dynamics(tmp_path):
+    root = relax_package(tmp_path, last_fmax=0.050, e_tail_meV=4.0)   # first atom (free) carries 0.050
+    out = root / "outputs" / "cx" / "relax"
+    for p in (out / "CONTCAR", root / "runs" / "cx" / "relax" / "CONTCAR"):
+        p.write_text(SD_CONTCAR)
+    r = accept(root)
+    assert r.returncode == 1 and not (out / "ACCEPTED").exists(), r.stdout + r.stderr

@@ -144,7 +144,7 @@
   - **D: caveat:** the D: copies of these folders still hold rev5 files (DONE dated 10-30, `.seg1`/`.seg2`, an old WALLTIME_STOP). Use only files dated 2026-11-07 or later for rev6.
 - **Relax arrays ended (2026-11-14, desk ledger f9c4b95; jobs 1169113 and 1176164):**
   - Eight relaxes are DONE. PFPAI, TFPACl and THCl hit the walltime a second time. None of the 11 complex statics or the 2 k-checks has run.
-  - The numbers below come from the last rev6 OUTCAR of each job. Max force is taken over free atoms only; the frozen atoms report zero force. ΔE10 is E(last) − E(last − 10).
+  - The numbers below come from the last rev6 OUTCAR of each job. Max force is taken over free atoms only. VASP prints real forces on frozen atoms (0.21–0.35 eV/Å at the freeze boundary); ASE's OUTCAR reader zeroes them. ΔE10 is E(last) − E(last − 10).
 
     | Job | Status | Steps | E0 (eV) | Max force (eV/Å) | ΔE10 (meV) |
     |---|---|---|---|---|---|
@@ -168,6 +168,10 @@
     - Each goes through `accept_relax.sh` with limits of 0.045 eV/Å and 7 meV.
     - Then come the statics (`--array=1-11%5`) and the k-check.
     - Each complex energy carries about ±0.02–0.04 eV from the soft-mode drift.
+    - **accept_relax.sh refused PFPAI (2026-11-14):** the script took the max force over all atoms, so it saw 0.21 eV/Å on a frozen boundary atom. Nothing was written.
+      - The fix measures free atoms only (selective-dynamics T in CONTCAR) and records the all-atom max as well. It is in the generator here and applied at the desk.
+      - Free-atom values: PFPAI 0.0442, TFPACl 0.0341, THCl 0.0377 eV/Å.
+      - TFPAI's earlier acceptance was a free rev5 relax, so it is unaffected.
     - **Desk check (2026-11-14):** the D: copies hold rev5-era `OSZICAR.seg1/seg2` for these three, and `accept_relax.sh` would prepend them. This changes only the step count it records. dE10 uses the last 10 of 225–238 rev6 steps, and the force comes from the last OUTCAR. If the files are on LONI, the desk appends a `note_steps` line to ACCEPTED; nothing is moved.
 - Seven complex inputs change (new structure hashes), and `kcheck_complex_PEAAc` follows the rebuilt PEAAc.
 - The revision-4 outputs of the seven move to `outputs_rev4/` and stay training frames; nothing is deleted.

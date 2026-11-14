@@ -165,7 +165,7 @@ set -u
 ACCEPT = r'''#!/bin/bash
 # Owner acceptance of an unfinished relax (plain bash + awk). Use only after the job's segment has ENDED.
 #   bash accept_relax.sh JOB FMAX_MAX_eV_per_A DE10_MAX_meV "who decided, why"
-# Measures the last max force (last OUTCAR force block) and |E(last) - E(last-10)| over all segments (OSZICAR.segN +
+# Measures the last max force on free atoms (last OUTCAR force block; selective-dynamics T in CONTCAR) and |E(last) - E(last-10)| over all segments (OSZICAR.segN +
 # OSZICAR), refuses if either exceeds the thresholds, and writes outputs/JOB/relax/ACCEPTED with the numbers, the note,
 # the user, the date and the CONTCAR sha256. The static then starts from that CONTCAR. Never write DONE by hand:
 # DONE means VASP reached EDIFFG; ACCEPTED means the owner accepted the geometry.
@@ -179,17 +179,26 @@ out=outputs/$job/relax work=runs/$job/relax
 [ -f "$out/ACCEPTED" ] && { echo "$job/relax is already ACCEPTED:" >&2; cat "$out/ACCEPTED" >&2; exit 2; }
 for f in "$out/CONTCAR" "$out/OUTCAR" "$out/OSZICAR" "$work/CONTCAR"; do [ -s "$f" ] || { echo "missing $f" >&2; exit 2; }; done
 cmp -s "$out/CONTCAR" "$work/CONTCAR" || { echo "outputs CONTCAR differs from runs CONTCAR: is the segment still running or unsaved?" >&2; exit 2; }
-fmax=$(awk '/TOTAL-FORCE/{blk=1; m=0; getline; next} blk && /^ ---/{blk=0; last=m; next}
-            blk{f=sqrt($4*$4+$5*$5+$6*$6); if(f>m) m=f} END{printf "%.4f", last}' "$out/OUTCAR")
+# free atoms = selective-dynamics T on any axis in CONTCAR (all atoms if it has no selective dynamics). VASP prints the
+# real force on frozen atoms in TOTAL-FORCE, so the limit applies to free atoms only; the all-atom max is recorded too.
+fl=$(awk 'NR==7{for(i=1;i<=NF;i++) n+=$i} NR==8{sd=($1 ~ /^[Ss]/)}
+          sd && NR>=10 && NR<10+n {k++; if($4=="T"||$5=="T"||$6=="T") printf "%d ", k}
+          END{if(!sd) printf "ALL"}' "$out/CONTCAR")
+read -r fmax fmax_all nfree < <(awk -v fl="$fl" 'BEGIN{all=(fl=="ALL"); n=split(fl, a, " "); for(j=1;j<=n;j++) fr[a[j]]=1}
+            /TOTAL-FORCE/{blk=1; i=0; m=0; ma=0; getline; next} blk && /^ ---/{blk=0; last=m; lasta=ma; nf=(all? i : n); next}
+            blk{i++; f=sqrt($4*$4+$5*$5+$6*$6); if(f>ma) ma=f; if((all || (i in fr)) && f>m) m=f}
+            END{printf "%.4f %.4f %d\n", last, lasta, nf}' "$out/OUTCAR")
+[ "$nfree" -gt 0 ] || { echo "no free atoms found (CONTCAR selective dynamics vs OUTCAR)" >&2; exit 2; }
 segs=$(ls -v "$out"/OSZICAR.seg* 2>/dev/null || true)   # seg1, seg2, ..., seg10 in order
 read -r nsteps de < <(cat $segs "$out/OSZICAR" | awk '/ F= /{n++; for(i=1;i<=NF;i++) if($i=="F=") e[n]=$(i+1)+0}
             END{d=(n>10)? (e[n]-e[n-10])*1000 : 1e9; printf "%d %.1f\n", n, d}')
 ok=$(awk -v f="$fmax" -v fm="$fmax_max" -v d="$de" -v dm="$de_max" 'BEGIN{ad=(d<0)?-d:d; print (f<=fm && ad<=dm)?"yes":"no"}')
-echo "$job: last max force $fmax eV/A (limit $fmax_max), E(last)-E(last-10) $de meV (limit $de_max), $nsteps ionic steps"
+echo "$job: last max force $fmax eV/A on $nfree free atoms (limit $fmax_max; all atoms $fmax_all), E(last)-E(last-10) $de meV (limit $de_max), $nsteps ionic steps"
 [ "$ok" = yes ] || { echo "REFUSED: outside the owner's thresholds; nothing written" >&2; exit 1; }
 { echo "accepted: owner acceptance of an unfinished relax (not VASP convergence)"
   echo "job: $job"; echo "date: $(date -Is)"; echo "user: ${USER:-unknown}"; echo "note: $note"
-  echo "last_max_force_eV_per_A: $fmax"; echo "threshold_max_force: $fmax_max"
+  echo "last_max_force_eV_per_A: $fmax"; echo "last_max_force_free: $fmax"; echo "last_max_force_all: $fmax_all"
+  echo "free_atoms: $nfree"; echo "threshold_max_force: $fmax_max"
   echo "dE_last10_meV: $de"; echo "threshold_dE_last10_meV: $de_max"; echo "ionic_steps_all_segments: $nsteps"
   echo "contcar_sha256: $(sha256sum "$out/CONTCAR" | awk '{print $1}')"
   echo "incar_ediffg: $(awk -F= '/^ *EDIFFG/{gsub(/ /,"",$2); print $2}' "inputs/$job/relax/INCAR")"
