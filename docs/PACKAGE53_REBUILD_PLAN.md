@@ -172,6 +172,10 @@
       - The fix measures free atoms only (selective-dynamics T in CONTCAR) and records the all-atom max as well. It is in the generator here and applied at the desk.
       - Free-atom values: PFPAI 0.0442, TFPACl 0.0341, THCl 0.0377 eV/Å.
       - TFPAI's earlier acceptance was a free rev5 relax, so it is unaffected.
+      - Desk fix c8c6547 (record e407a87): the desk copy is byte-identical to 6833b7d.
+      - The desk's scratch test accepted all three at 0.045 / 7.
+      - The accepts, the statics (`--array=1-11%5`) and the k-check were handed to the owner on 2026-11-14.
+      - REVISION6/5_2_VERIFICATION.json still list the old accept_relax.sh hash. They are kept as staging-time records, and no code reads them.
     - **Desk check (2026-11-14):** the D: copies hold rev5-era `OSZICAR.seg1/seg2` for these three, and `accept_relax.sh` would prepend them. This changes only the step count it records. dE10 uses the last 10 of 225–238 rev6 steps, and the force comes from the last OUTCAR. If the files are on LONI, the desk appends a `note_steps` line to ACCEPTED; nothing is moved.
 - Seven complex inputs change (new structure hashes), and `kcheck_complex_PEAAc` follows the rebuilt PEAAc.
 - The revision-4 outputs of the seven move to `outputs_rev4/` and stay training frames; nothing is deleted.
