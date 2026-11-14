@@ -306,7 +306,7 @@ Question: how tight must a relaxation be before energy differences stop changing
 
 ## 8h. DFT at the deep minima (LONI package 127, 2026-11-14): the deeper minima are real, and the model holds there
 
-Package `127_vasp_pvpass_mel2_acat_deepmin_statics` (job 1181419): 10/10 done, 32-37 SCF steps, 3.5-4.2 h each on 2 nodes. Outputs under `D:\MLIP_Work_Folder\hpc_smoke_testsW_...`; report `data/cache/adsearch/v1c/audit_127.json`.
+Package `127_vasp_pvpass_mel2_acat_deepmin_statics` (job 1181419): 10/10 done, 32-37 SCF steps, 3.5-4.2 h each on 2 nodes. Outputs under `D:\MLIP_Work_Folder\hpc_smoke_tests\127_...`; report `data/cache/adsearch/v1c/audit_127.json`.
 
 | Structure | LBFGS end point minus FIRE end point, DFT | same, round-2 model | Model force RMSE near the molecules, shallow / deep |
 |---|---|---|---|
