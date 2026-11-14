@@ -164,9 +164,10 @@
   - **The three walltime jobs are flatter than several DONE ones.** Their free-atom max force is 0.034–0.044 eV/Å, against EDIFFG 0.03, and they moved at most 0.01 Å in the last 20 steps.
   - **DONE does not mean the energy has settled.** PEAI, both R8 tests, PFPACl and TFPAI reached |F| < 0.03 while still dropping 9–41 meV per 10 steps. Soft salt modes keep lowering the energy below the force threshold. That puts a floor of roughly ±0.02–0.04 eV under each complex energy.
   - **Early read on the freeze test:** the R8 relaxes end 28 meV (PEAI) and 39 meV (TFPAI) above R10. That is above the 0.02 eV criterion, but both R8 runs were still descending. The statics decide it.
-  - **Owner decision pending:**
-    - accept the three walltime CONTCARs with `accept_relax.sh` (they need limits of at least 0.045 eV/Å and 7 meV, above the TFPAI precedent of 0.035 and 5);
-    - or run a third continuation segment.
+  - **Decided (owner, 2026-11-14): accept all three.**
+    - Each goes through `accept_relax.sh` with limits of 0.045 eV/Å and 7 meV.
+    - Then come the statics (`--array=1-11%5`) and the k-check.
+    - Each complex energy carries about ±0.02–0.04 eV from the soft-mode drift.
 - Seven complex inputs change (new structure hashes), and `kcheck_complex_PEAAc` follows the rebuilt PEAAc.
 - The revision-4 outputs of the seven move to `outputs_rev4/` and stay training frames; nothing is deleted.
 - Generate with commit a8442ac or later, with `signal_margin_s: 3600` for `relax_slab`.
