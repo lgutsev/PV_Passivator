@@ -168,6 +168,7 @@
     - Each goes through `accept_relax.sh` with limits of 0.045 eV/Å and 7 meV.
     - Then come the statics (`--array=1-11%5`) and the k-check.
     - Each complex energy carries about ±0.02–0.04 eV from the soft-mode drift.
+    - **Desk check (2026-11-14):** the D: copies hold rev5-era `OSZICAR.seg1/seg2` for these three, and `accept_relax.sh` would prepend them. This changes only the step count it records. dE10 uses the last 10 of 225–238 rev6 steps, and the force comes from the last OUTCAR. If the files are on LONI, the desk appends a `note_steps` line to ACCEPTED; nothing is moved.
 - Seven complex inputs change (new structure hashes), and `kcheck_complex_PEAAc` follows the rebuilt PEAAc.
 - The revision-4 outputs of the seven move to `outputs_rev4/` and stay training frames; nothing is deleted.
 - Generate with commit a8442ac or later, with `signal_margin_s: 3600` for `relax_slab`.
