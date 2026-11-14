@@ -697,12 +697,15 @@ class AseRelaxEvaluator:
       "passivant"  the molecules only."""
 
     def __init__(self, calc, fmax: float = 0.1, steps: int = 150, radius: float = 8.0, mobile: str = "face",
-                 protocol: dict | None = None, space: "SearchSpace | None" = None):
+                 protocol: dict | None = None, space: "SearchSpace | None" = None, optimizer: str = "FIRE"):
+        if optimizer not in ("FIRE", "LBFGS"):
+            raise ValueError(optimizer)
+        self.optimizer = optimizer
         if mobile == "face" and space is None:
             raise ValueError('mobile="face" needs the SearchSpace')
         self.calc, self.fmax, self.steps, self.radius, self.mobile = calc, fmax, steps, radius, mobile
         self.space = space
-        self.protocol = {"optimizer": "FIRE", "fmax_eV_A": fmax, "max_steps": steps, "mobile": mobile,
+        self.protocol = {"optimizer": optimizer, "fmax_eV_A": fmax, "max_steps": steps, "mobile": mobile,
                          "radius_A": radius, **(protocol or {})}
 
     def mobile_mask(self, atoms: Atoms) -> np.ndarray:
@@ -732,7 +735,7 @@ class AseRelaxEvaluator:
 
     def __call__(self, atoms: Atoms, genes: tuple) -> EvalResult:
         from ase.constraints import FixAtoms
-        from ase.optimize import FIRE
+        from ase.optimize import FIRE, LBFGS
         a = atoms.copy()
         mob = self.mobile_mask(a)
         a.set_constraint(FixAtoms(indices=np.flatnonzero(~mob)))
@@ -740,7 +743,7 @@ class AseRelaxEvaluator:
         _count_calls(self.calc)
         a.calc = self.calc
         t0 = time.time()
-        opt = FIRE(a, logfile=None)
+        opt = {"FIRE": FIRE, "LBFGS": LBFGS}[self.optimizer](a, logfile=None)
         conv = bool(opt.run(fmax=self.fmax, steps=self.steps))
         e = float(a.get_potential_energy())
         f = float(np.linalg.norm(a.get_forces()[mob], axis=1).max())

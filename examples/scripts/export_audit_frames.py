@@ -58,9 +58,19 @@ def read_frame(d: Path):
 def families(names, pool: Path, man: dict, same_minimum: float) -> dict:
     """name -> family id.  pool_NN/asbuilt_NN share a family; same-minimum structures are merged."""
     # asbuilt_NN is the unrelaxed start of pool_NN; rr_X is X relaxed again by another model: one family each
-    fam = {n: n.removeprefix("rr_").replace("asbuilt_", "pool_") for n in names}
+    # sh_X / dp_X are the shallow and deep end points of X on the re-relaxed slab (package 127); slab_sh / slab_dp
+    # are the bare slab in those two states, audited as structures: one family of their own
+    VERSIONS = ("rr_", "sh_", "dp_")
+
+    def base(n):
+        if n in ("slab_sh", "slab_dp"):
+            return "slab_relaxed"
+        for p in VERSIONS:
+            n = n.removeprefix(p)
+        return n.replace("asbuilt_", "pool_")
+    fam = {n: base(n) for n in names}
     cplx = [n for n in names if man["jobs"][n]["role"] == "complex" and man["jobs"][n].get("relaxed_by_model")
-            and not n.startswith("rr_")]
+            and not n.startswith(VERSIONS) and fam[n] != "slab_relaxed"]
     for i, a in enumerate(cplx):
         for b in cplx[:i]:
             ja, jb = man["jobs"][a], man["jobs"][b]
