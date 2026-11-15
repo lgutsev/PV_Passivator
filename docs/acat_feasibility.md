@@ -324,6 +324,31 @@ Package `127_vasp_pvpass_mel2_acat_deepmin_statics` (job 1181419): 10/10 done, 3
 
 **Consequences.** (1) A search must relax with LBFGS (or equivalent) well past where FIRE stalls, or it ranks stalled states. (2) The round-2 model is good enough to drive those relaxations on this system: its energy differences at geometries it chose, far from its training set, are within thresholds. (3) The ten frames are new training data from a region the model had not seen (a round 3 would add them). (4) Still not done: no relaxation here reached 0.01 eV/A, so the true minima are lower still by an unknown amount.
 
+## 8i. Fine-tune round 3: packages 110 + 120 + 127 (2026-11-14)
+
+Dataset `dataset_v3`: all 40 frames. `sh_X` and `dp_X` join the family of `X`; the two relaxed bare slabs are a family of their own (`slab_relaxed`, held out in fold 3). Same configuration and folds otherwise, so every arrangement in all its versions (foundation minimum, unrelaxed start, re-relaxed, shallow, deep) is predicted by a model that saw none of them.
+
+| Out of fold | Threshold | Round 2 (30 frames) | Round 3 (40 frames) |
+|---|---|---|---|
+| Relative energy, two-melamine frames pooled, MAE / worst | ≤ 0.10 / ≤ 0.20 eV | 0.073 / 0.175 (25 frames) | **0.061 / 0.143** (33 frames) |
+| Spearman, pooled | ≥ 0.8 | 0.990 | 0.994 |
+| Per fold: relative energy MAE / worst | | 0.03–0.06 / 0.04–0.15 | 0.03–0.05 / 0.05–0.13 |
+| Deep minus shallow, error against DFT − D3 (legacy C, 00, 02, 04) | | 0.11, 0.12, 0.03, 0.18 (model trained without them, §8h) | 0.02, 0.00, 0.01, 0.09 |
+| Bare slab, deep minus shallow, error | | 0.07 (§8h) | 0.09 |
+| Force RMSE near the molecules: 17 relaxed package-110 frames | ≤ 0.05 eV/Å | 0.035 | 0.033 |
+| same, 8 re-relaxed frames | ≤ 0.05 | 0.043 | 0.039 |
+| same, 4 shallow / 4 deep frames | ≤ 0.05 | 0.026 / 0.046 pooled 0.037 (§8h, not out of fold by family) | 0.034 / **0.047** (deep random 04: 0.071) |
+| same, unrelaxed starts | ≤ 0.05 | 0.079, 0.068, 0.283 | 0.077, 0.069, **0.269** |
+| Single-molecule modes, relative MAE | | 0.071 | 0.080 |
+
+- Energies improve everywhere two-melamine frames are concerned; the systematic underestimate of the deep-minimum gain is gone for three of four arrangements.
+- Forces are unchanged within noise. Far-from-equilibrium frames still fail (`asbuilt_02`), as do the molecules of deep random 04 (0.07 eV/Å). Ten more frames near minima do not teach the model about strongly distorted geometries.
+- Single-molecule modes did not improve (three frames, no new data of that kind).
+
+**Round-3 model for use:** `data/cache/adsearch/ft110/run_v3/run/pvpass_mel2_ft_v3.model` (git-ignored), trained on all 40 frames less the validation families (random 03, random 09). No held-out test of its own; the cross-validation is the estimate.
+
+Practical note: `score_audit_model.score` now releases the scoring model's GPU memory; before, the cross-validation parent kept about 2 GB while the next fold trained, which put an 8 GB card at 7.6 GB.
+
 ## 9. Reproduce
 
 ```

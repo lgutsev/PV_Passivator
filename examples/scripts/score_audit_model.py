@@ -82,6 +82,15 @@ def score(dataset: Path, model=None, device="cuda", stored=False) -> dict:
                     gg["spearman"] = float(np.corrcoef(rk(er), rk(em))[0, 1])
                 s["groups"][g] = gg
         out["splits"][split] = s
+    if calc is not None:            # a caller that goes on to train (cv_audit_finetune.py) must get the GPU memory back
+        del calc
+        try:
+            import gc
+            import torch
+            gc.collect()
+            torch.cuda.empty_cache()
+        except Exception:
+            pass
     return out
 
 
