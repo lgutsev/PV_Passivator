@@ -349,6 +349,36 @@ Dataset `dataset_v3`: all 40 frames. `sh_X` and `dp_X` join the family of `X`; t
 
 Practical note: `score_audit_model.score` now releases the scoring model's GPU memory; before, the cross-validation parent kept about 2 GB while the next fold trained, which put an 8 GB card at 7.6 GB.
 
+## 8j. Search benchmark, laptop-sized pilot (2026-11-14): plumbing and cost; no claim about the arms
+
+`adsearch_bench_small.py`: both arms, seeds 0 and 1, 16 attempts each (first 8 shared), round-3 model + D3 in float32, substrate = the LBFGS-relaxed common-cell slab of §8g. Two stages: **screen** every valid proposal with LBFGS to 0.1 eV/Å, at most 80 steps (the energy the search ranks by); **refine** the six lowest unique screened structures over all runs with LBFGS to 0.03 eV/Å, at most 400 steps, then one float64 energy. 96 minutes on the laptop GPU at 4 CPU threads; relaxations cached, so the 14 shared proposals were computed once.
+
+| Run | Rejected before relaxing | Duplicate proposals | Relaxed | Ranked | Force calls | Best screened energy |
+|---|---|---|---|---|---|---|
+| random, seed 0 | 2 | 0 | 14 | 11 | 762 | −9310.885 |
+| evolutionary, seed 0 | 1 | 2 | 13 | 10 | 695 | −9310.899 |
+| random, seed 1 | 3 | 0 | 13 | 9 | 688 | −9310.855 |
+| evolutionary, seed 1 | 2 | 1 | 13 | 12 | 671 | −9310.871 |
+
+Screening: 51 steps and 75–85 s per candidate on average; 3 of 53 relaxations hit the 80-step cap and 7 ended as `reactive_rearrangement` (not ranked). In both seeds the evolutionary arm's best is 0.01–0.02 eV below the random arm's, which is far inside the model error and means nothing with two seeds and 8 arm-specific attempts.
+
+Refinement of the six lowest (all two ring-N end-on molecules):
+
+| Screen rank | Screened energy | Refined energy (float64) | Steps | First found by |
+|---|---|---|---|---|
+| 0 | -9310.899 | -9311.825 | 395 | evolutionary (exchange), seed 0 |
+| 1 | -9310.885 | -9311.529 | 307 | first random proposal, seed 0 |
+| 2 | -9310.878 | -9311.744 | 282 | evolutionary (move), seed 0 |
+| 3 | -9310.871 | -9312.001 | 360 | evolutionary (move), seed 1 |
+| 4 | -9310.870 | -9311.845 | 400 (cap) | random, seed 0 |
+| 5 | -9310.855 | -9311.741 | 385 | random proposal shared by both arms, seed 1 |
+
+- **The screening order does not survive.** The six are within 0.044 eV at the screening level and spread over 0.47 eV after refinement; the fourth by screening becomes the lowest and the second becomes the highest. Every one drops by 0.64–1.13 eV and atoms move 2.9–3.7 Å.
+- **The screen does find the right family.** Every structure within 0.1 eV of a run's best is ring-N + ring-N, the motif of the legacy arrangements.
+- **Against the known arrangements, same model, same slab, same frozen atoms:** the deep legacy C geometry of §8g (relaxed with the round-2 model, not re-relaxed here, so an upper bound) is at −9311.809 and deep random 00 at −9311.494. Three refined structures are at or below legacy C: −9312.001, −9311.845 (not converged), −9311.825. The lowest is 0.19 eV below it, about one-and-a-half times the model's worst out-of-fold error (0.14 eV), and no DFT number exists for it.
+
+**What the pilot establishes.** The pipeline runs end to end with LBFGS; a screened candidate costs about 80 s and a refined one 8–11 min on this laptop; a loose-threshold screen is good for choosing the motif family but not for ordering candidates inside it, so the ordering must come from refinement (or the search must rank on refined energies, at about 8 times the cost per candidate). **What it does not establish:** anything about random against evolutionary. That still needs the §7 budget (3 seeds, 200 attempts), now with refinement of the top of each run: of the order of 600 screens and 60 refinements per arm, 25–35 GPU-hours on a card like this one, which is cluster work.
+
 ## 9. Reproduce
 
 ```
