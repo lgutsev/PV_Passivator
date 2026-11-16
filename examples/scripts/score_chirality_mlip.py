@@ -40,7 +40,7 @@ ENVS = ("N", "C", "H_on_N", "H_on_C", "Pb", "I_axial", "I_bridging")
 
 def _env_masks(at):
     try:
-        m = environments(at)
+        m = environments(at, mx_cut=4.3)   # thermal Pb-I stretches reach 4.1 A; the 7th I stays >= 5.4 A
         return {k: m[k] for k in ENVS}, None
     except Exception as e:  # noqa: BLE001  - a heavily displaced frame may not give a clean topology
         sym = np.array(at.get_chemical_symbols())

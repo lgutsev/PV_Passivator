@@ -36,9 +36,9 @@ from pvpassivator import chirality as ch  # noqa: E402
 N_FU = {"R": 4, "rac": 2}
 
 
-def environments(atoms) -> dict[str, np.ndarray]:
+def environments(atoms, mx_cut: float = 3.8) -> dict[str, np.ndarray]:
     """Boolean masks per chemical environment (from a fresh topology of this cell)."""
-    top = ch.build_topology(atoms)
+    top = ch.build_topology(atoms, mx_cut=mx_cut)
     sym = np.array(atoms.get_chemical_symbols())
     n = len(atoms)
     m = {el: sym == el for el in sorted(set(sym))}
