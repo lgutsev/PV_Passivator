@@ -163,16 +163,30 @@ for sd in sys.argv[3:]:
 FETCH = r'''#!/bin/bash
 # Run ONCE on a login node (needs internet), from the package directory, before any sbatch.
 # Downloads the pretrained DPA-4 checkpoint and its released training config (licence: CC-BY-NC-4.0, per the model card).
+# One master copy in the LONI foundation-model store; pretrained/ holds symlinks to it, so no model binary sits in a
+# work folder (desk rule, package 138). A file already in the store is reused, not downloaded again.
 set -euo pipefail
 V=${DPA4_VARIANT:-__VARIANT__}
 B=__HF__
-mkdir -p pretrained && cd pretrained
+M=${DPA4_STORE:-/ddnB/project/ramu/lgutsev/MLIP_PROJECT_STORAGE/MLIP_Foundational_Models/DPA4-OMat24}
+PKG=$PWD
+mkdir -p "$M" pretrained
+cd "$M"
 for f in DPA4-$V-OMat24-__VERSION__.pt DPA4-$V-OMat24-__VERSION__.json; do
-  [ -s "$f" ] || curl -fL --retry 3 -o "$f" "$B/$f"
+  if [ ! -s "$f" ]; then
+    curl -fL --retry 3 -o "$f.part" "$B/$f"
+    mv "$f.part" "$f"
+  fi
 done
-python3 -c "import json,sys; json.load(open('DPA4-$V-OMat24-__VERSION__.json')); print('config parses')"
-sha256sum DPA4-$V-OMat24-__VERSION__.pt DPA4-$V-OMat24-__VERSION__.json | tee SHA256SUMS
-ls -l
+grep -q '"model"' DPA4-$V-OMat24-__VERSION__.json || { echo "released config has no \"model\" section" >&2; exit 3; }
+echo "config has a model section"
+sha256sum DPA4-$V-OMat24-__VERSION__.pt DPA4-$V-OMat24-__VERSION__.json > "SHA256SUMS.$V"
+cd "$PKG/pretrained"
+for f in DPA4-$V-OMat24-__VERSION__.pt DPA4-$V-OMat24-__VERSION__.json; do ln -sfn "$M/$f" "$f"; done
+cp "$M/SHA256SUMS.$V" SHA256SUMS
+sha256sum -c SHA256SUMS
+cat SHA256SUMS
+ls -lL
 '''
 
 HEAD = r'''#!/bin/bash
@@ -301,6 +315,7 @@ def main(argv=None) -> int:
     lf(out / "export.list", "outputs/*/env.txt\noutputs/*/*.log\noutputs/*/timing.txt\noutputs/*/input.json\noutputs/*/lcurve.out\n"
                             "outputs/*/pred/*\noutputs/*/zeroshot/*\noutputs/*/after100/*\noutputs/*/model_final.pt\noutputs/*/DONE\nlogs/*\npretrained/SHA256SUMS\n")
     lf(out / "logs" / ".keep", "")
+    lf(out / ".gitattributes", "# keep data byte-identical to SHA256SUMS\n*.npy binary\n*.raw -text\n*.txt -text\n")
     n_frames = {k: sum(len(v) for v in d.values()) for k, d in layout.items()}
     lf(out / "README.md", f"""# {pkg}
 
