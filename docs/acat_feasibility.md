@@ -396,6 +396,19 @@ Package `131_vasp_pvpass_mel2_acat_searchbest_statics` (job 1183184): 2/2 done, 
 - Forces near the molecules are within threshold on both frames (pooled 0.033 eV/Å). The cosine criterion is not meaningful at the model's own minima (§8e).
 - Limits: two single points at model geometries. Neither is a DFT minimum (DFT forces up to 0.15–0.21 eV/Å on some atom), the pilot sampled 64 attempts, and nothing says a still lower arrangement does not exist. The result is "a search with this model found, and correctly ranked, a structure better than the hand-built ones", not "the global minimum".
 
+## 8l. DPA-4 trial (LONI package 138, 2026-11-16): smoke stage running
+
+Same-data comparison of a pretrained DPA-4 fine-tuned on the 40 frames of §8i (same target, same five folds) against the round-3 MACE model. Generator `examples/scripts/prepare_dpa4_trial.py`. Owner authorized the download and a one-hour smoke job only; the fold array waits for the smoke report.
+
+Pretrained checkpoint (OMat24, PBE-level labels; licence CC-BY-NC-4.0 per the model card), fetched once into the cluster model store:
+
+| File | Bytes | sha256 |
+|---|---|---|
+| `DPA4-Neo-OMat24-v20260805.pt` | 4,583,819 | `fd7f34ae28f921201e4a0328ddf56179892752084f8363e7796038201471c989` |
+| `DPA4-Neo-OMat24-v20260805.json` | 3,654 | `3ca5ec05a3d3f626034e463f09ebf1673fe377aca40381062efb50825061409b` |
+
+Smoke job 1186734 tests whether the cluster's deepmd 3.2.0 beta module loads this checkpoint, gives zero-shot predictions on all 40 frames, and times 100 fine-tune steps.
+
 ## 9. Reproduce
 
 ```
