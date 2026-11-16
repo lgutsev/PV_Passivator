@@ -360,6 +360,24 @@ reasons are in §9.
     - 219 single points: D8 R 75 / rac 90, D9 R 24 / rac 30. R 358 K contributes 15 + 4.
     - Same profile as 113. About 30–45 node-h.
     - Every frame was re-checked at staging, and none was refused.
+- **Package 126 back (2026-11-14/16): 219/219 DONE** (job 1180657; tasks 24/45/47 exited 75 and were rerun as
+  1182128). All points converged in ≤ 21 SCF steps. Receipt recorded at the desk.
+  - Dataset `data/training/chirality_v2`: train 250 (adds D8 R 75 / rac 90), valid 13, test 66 (rac NH₃⁺ scan plus
+    D9 R 24 / rac 30). Nothing rejected; the same 7 duplicates as v1 were handled the same way.
+  - **ft1 fails on the finite-temperature held-out frames** (`data/cache/chirality_scores/ft1_on_v2.json`): test
+    force RMSE C 0.113, N 0.064, H on C 0.043 eV/Å, worst atoms 0.65 / 0.28 / 0.54 eV/Å.
+    - ft1 was trained on near-minimum geometries only. Its 0.008 eV/Å on the rac NH₃⁺ scan does not carry over
+      to thermal configurations.
+    - So ft1 was usable as a configuration generator, whose frames are all relabelled by DFT, but not as a
+      model.
+  - The scorer now builds its environment topology at Pb–I 4.3 Å, so thermal frames keep the axial and
+    bridging iodides separate.
+  - **ft2 staged** (not sent): `LONI_staging/chiral_ft2_mace_mba2pbi4`, hand-off `HANDOFF_TO_DISPATCH_chiral_ft2.md`.
+    - Dataset v2.
+    - Starts from the foundation model, like ft1.
+    - Stage one: forces 100 / energy 1. Stage two from epoch 70: energy 1000 / forces 100.
+    - 100 epochs, one gpu2 GPU, ≤ 1 GPU-h estimated.
+    - Settings: `examples/chirality/finetune_overrides_ft2.json`.
 
 ## 1. Hypothesis under test
 
