@@ -201,9 +201,10 @@
     - about +0.03 eV systematic from the freeze radius;
     - about 0.03 eV from k-points.
     - Taken together, about ±0.05 eV absolute. Gaps under ~0.05 eV (PFPAI, PEACl, THCl, TFPACl) are not resolved.
-  - **Owner decision pending:**
-    - accept rev6 as the label set with that stated uncertainty;
-    - or spend more LONI time first, on a larger freeze radius and dense-k statics for every complex.
+  - **Decided (owner, 2026-11-16): rev6 is accepted as the package 53 label set at ±0.05 eV.**
+    - No larger freeze radius and no dense-k statics.
+    - Report the E_ads above with ±0.05 eV, noting that R = 10 Å and the k-grid both bias toward underbinding.
+    - Do not rank PFPAI, PEACl, THCl and TFPACl against each other.
     - **Desk check (2026-11-14):** the D: copies hold rev5-era `OSZICAR.seg1/seg2` for these three, and `accept_relax.sh` would prepend them. This changes only the step count it records. dE10 uses the last 10 of 225–238 rev6 steps, and the force comes from the last OUTCAR. If the files are on LONI, the desk appends a `note_steps` line to ACCEPTED; nothing is moved.
 - Seven complex inputs change (new structure hashes), and `kcheck_complex_PEAAc` follows the rebuilt PEAAc.
 - The revision-4 outputs of the seven move to `outputs_rev4/` and stay training frames; nothing is deleted.
