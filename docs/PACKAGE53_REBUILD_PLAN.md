@@ -177,6 +177,33 @@
       - The accepts, the statics (`--array=1-11%5`) and the k-check were handed to the owner on 2026-11-14.
       - REVISION6/5_2_VERIFICATION.json still list the old accept_relax.sh hash. They are kept as staging-time records, and no code reads them.
       - **On LONI:** all three were ACCEPTED with the same numbers, and their CONTCAR sha256s match the D: files. The statics run as job 1182151 (tasks 1–11) and the k-check as job 1182152.
+- **Rev6 complete (2026-11-15, desk ledger 7c672dc):** all 46 units are done, including the 11 statics (job 1182151) and the 2 k-checks (job 1182152).
+  - **A5 (`pvpass labels`):** run on a rev6-only copy of the export. The D: folders still hold rev5 DONE files for PFPAI, TFPACl and THCl (and a rev5 ACCEPTED for TFPAI), which would hide the owner acceptances. 61 stale files were left out.
+    - The spectator check passes for all 9: far-field mean 0.0005–0.0017 Å, and the 8–10 Å shell 0.025–0.066 Å against a limit of 0.15.
+    - All 21 statics are usable.
+
+    | Salt | E_ads (eV) | Relax |
+    |---|---|---|
+    | TFPAI | −2.207 | DONE |
+    | PEAI | −2.111 | DONE |
+    | PFPAI | −2.042 | ACCEPTED |
+    | PEACl | −2.039 | DONE |
+    | THCl | −2.018 | ACCEPTED |
+    | TFPACl | −2.005 | ACCEPTED |
+    | PFPACl | −1.777 | DONE |
+    | PEATFA | −1.751 | DONE |
+    | PEAAc | −1.603 | DONE |
+
+  - **Freeze-radius test fails the 0.02 eV criterion.** E(R8 static) − E(R10 static) is +0.028 eV for PEAI and +0.039 eV for TFPAI. Freezing more atoms raises the complex energy, so R = 10 Å probably still leaves a systematic underbinding of order 0.01–0.03 eV. It has the same sign for both salts, which affects absolute E_ads more than the ranking.
+  - **k-point check fails the 0.02 eV criterion.** The dense-minus-production shift is 2.683 eV (slab) and 2.650 eV (complex_PEAAc), a k error of −0.032 eV on E_ads(PEAAc). Only PEAAc was tested, so the size of the error for the other salts is unknown.
+  - **Error budget:**
+    - about ±0.02–0.04 eV from relax drift (soft modes);
+    - about +0.03 eV systematic from the freeze radius;
+    - about 0.03 eV from k-points.
+    - Taken together, about ±0.05 eV absolute. Gaps under ~0.05 eV (PFPAI, PEACl, THCl, TFPACl) are not resolved.
+  - **Owner decision pending:**
+    - accept rev6 as the label set with that stated uncertainty;
+    - or spend more LONI time first, on a larger freeze radius and dense-k statics for every complex.
     - **Desk check (2026-11-14):** the D: copies hold rev5-era `OSZICAR.seg1/seg2` for these three, and `accept_relax.sh` would prepend them. This changes only the step count it records. dE10 uses the last 10 of 225–238 rev6 steps, and the force comes from the last OUTCAR. If the files are on LONI, the desk appends a `note_steps` line to ACCEPTED; nothing is moved.
 - Seven complex inputs change (new structure hashes), and `kcheck_complex_PEAAc` follows the rebuilt PEAAc.
 - The revision-4 outputs of the seven move to `outputs_rev4/` and stay training frames; nothing is deleted.
