@@ -427,6 +427,20 @@ reasons are in §9.
     - the MD-stability items: NVE drift ≤ 1 meV/atom/ps and the stop conditions, over production-length runs in
       the production cell.
   - Production MD stays NO-GO until the stability check passes.
+- **MD-stability check staged (2026-11-16, owner: "Yes, prepare it"), not sent:** `LONI_staging/chiral_stab1_mace_mba2pbi4`,
+  hand-off `HANDOFF_TO_DISPATCH_chiral_stab1.md`.
+  - Runner: `examples/chirality/stability/run_stability.py`. Generator: `make_chirality_stability_package.py`.
+  - Units: R and rac in the production cell (2×2×1; 752 / 376 atoms) at 358 K.
+  - Per unit: 20 ps NVT, then 10 ps NVE, with ft2 + D3(BJ, r2SCAN). On LONI the D3 runs as a socket client in the
+    d3_torchdftd env.
+  - Every 100 fs the plan's stop conditions are checked:
+    - stereocentres;
+    - Pb six-coordination at 4.3 Å;
+    - NH₃⁺ identity, with organic bonds at 1.3 × covalent radii so a stretched N–H is not counted as broken;
+    - proton transfer (ammonium H…I < 1.9 Å);
+    - runaway force.
+  - PASS also needs |NVE drift| ≤ 1 meV/atom/ps.
+  - Ran end to end locally on the CPU with a tiny protocol. About 3–8 GPU-h on LONI.
 
 ## 1. Hypothesis under test
 
