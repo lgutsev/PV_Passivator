@@ -381,6 +381,21 @@ Refinement of the six lowest (all two ring-N end-on molecules):
 
 **DFT check prepared, not submitted (owner: "Yes, prepare them", 2026-11-15):** `acat_v1d_vasp_pvpass_mel2_searchbest_statics`, two r2SCAN+D3(BJ) statics on the package-127 protocol: `search_best` (the −9312.001 structure) and `legacyC_v3` (legacy C as re-relaxed above). About 15–17 node-h; mock run 2/2; hand-off note marked not authorized. The model predicts 0.10 eV in favour of `search_best`; with an expected error of 0.06 eV (worst 0.14) on such differences, DFT may well reverse it.
 
+## 8k. DFT check of the search result (LONI package 131, 2026-11-16): the search's structure is lower
+
+Package `131_vasp_pvpass_mel2_acat_searchbest_statics` (job 1183184): 2/2 done, 35 and 37 SCF steps, 3.9 and 4.0 h on 2 nodes. Report `data/cache/adsearch/v1d/audit_131.json`.
+
+| Structure | DFT E0 (eV) | Round-3 model (eV) | Model force RMSE near the molecules |
+|---|---|---|---|
+| `search_best` (search pilot, refined) | −9337.6260 | −9312.001 | 0.039 eV/Å |
+| `legacyC_v3` (legacy C, same model and protocol) | −9337.4858 | −9311.900 | 0.025 eV/Å |
+| difference | **−0.140** | −0.101 | |
+
+- **DFT confirms the search found a lower arrangement than legacy C**, by 0.14 eV; the model said 0.10 eV. The error on the difference is 0.04 eV, inside the cross-validated 0.06 eV.
+- `search_best` is the lowest DFT energy on record for two melamine on this slab: 0.27 eV below the deep legacy C frame of package 127 (−9337.3552), and legacy C itself came down 0.13 eV in DFT when continued with the round-3 model (the model said 0.09).
+- Forces near the molecules are within threshold on both frames (pooled 0.033 eV/Å). The cosine criterion is not meaningful at the model's own minima (§8e).
+- Limits: two single points at model geometries. Neither is a DFT minimum (DFT forces up to 0.15–0.21 eV/Å on some atom), the pilot sampled 64 attempts, and nothing says a still lower arrangement does not exist. The result is "a search with this model found, and correctly ranked, a structure better than the hand-built ones", not "the global minimum".
+
 ## 9. Reproduce
 
 ```
