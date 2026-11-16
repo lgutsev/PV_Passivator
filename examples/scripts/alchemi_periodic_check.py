@@ -105,9 +105,17 @@ def cmd_parity(a):
     import torch
     import alchemi_backend as B
     cells, man = load_cells(a.manifest)
+    calc = native_calc(a.model, a.device, a.dtype)
+    # a fine-tuned model knows only its training elements (ft_v2: C H I N Pb; package 129 rev1 crashed on O):
+    # test each model on the cells it can represent, and say which were left out
+    z_model = sorted(int(z) for z in calc.models[0].atomic_numbers)
+    skipped = [{"name": c["name"], "unsupported_Z": sorted(set(int(z) for z in c["atoms"].numbers) - set(z_model))}
+               for c in cells if not set(int(z) for z in c["atoms"].numbers) <= set(z_model)]
+    cells = [c for c in cells if set(int(z) for z in c["atoms"].numbers) <= set(z_model)]
+    if len(cells) < 2:
+        raise SystemExit(f"fewer than 2 cells have only elements in the model's z_table {z_model}")
     atoms = [c["atoms"] for c in cells]
     n = len(atoms)
-    calc = native_calc(a.model, a.device, a.dtype)
 
     def native():
         out = []
@@ -167,7 +175,7 @@ def cmd_parity(a):
     ok = all(comps[k]["max_abs_dE_eV"] <= a.tol_e and comps[k]["max_abs_dF_eV_per_A"] <= a.tol_f for k in toolkit)
     rep = {"schema": "pvpass_alchemi_parity/1", "verdict": "PASS" if ok else "FAIL",
            "model": Path(a.model).name, "dtype": a.dtype, "tolerance": {"dE_eV": a.tol_e, "dF_eV_per_A": a.tol_f},
-           "versions": B.versions(), "gpu": gpu_info(), "n_cells": n, "n_atoms_total": int(sum(len(x) for x in atoms)),
+           "versions": B.versions(), "gpu": gpu_info(), "model_z_table": z_model, "cells_skipped_unsupported_elements": skipped, "n_cells": n, "n_atoms_total": int(sum(len(x) for x in atoms)),
            "batch_of_N": {"requested": n, "used": bn_used, "shuffled_used": sh_used, "peak_allocated_MiB": peak_bn,
                           "note": "batch size is halved only after a CUDA out-of-memory error"},
            "shuffled_order": [int(i) for i in order], "seconds_native_two_passes": round(t_native, 1),
@@ -461,7 +469,7 @@ def cmd_summary(a):
     out = {"schema": "pvpass_alchemi_summary/1", "parity": {}, "timing": {}}
     for p in sorted(res.glob("parity_*.json")):
         r = json.loads(p.read_text())
-        out["parity"][r["model"]] = {"verdict": r["verdict"], "n_cells": r["n_cells"], "batch_of_N_used": r["batch_of_N"]["used"],
+        out["parity"][r["model"]] = {"verdict": r["verdict"], "n_cells": r["n_cells"], "cells_skipped": [c["name"] for c in r.get("cells_skipped_unsupported_elements", [])], "batch_of_N_used": r["batch_of_N"]["used"],
                                      "worst_dE_eV": max(v["max_abs_dE_eV"] for k, v in r["comparisons"].items() if k != "native_vs_native"),
                                      "worst_dF_eV_per_A": max(v["max_abs_dF_eV_per_A"] for k, v in r["comparisons"].items() if k != "native_vs_native"),
                                      "native_vs_native": r["comparisons"]["native_vs_native"]}
