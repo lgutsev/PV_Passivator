@@ -417,6 +417,16 @@ reasons are in §9.
       which have not been run with ft2.
     - Production MD (~14 ns) remains NO-GO until the owner decides the "none > 0.08" reading and those stability
       checks pass.
+  - **Owner decision (2026-11-16): "none > 0.08" is read per environment.** Recorded as
+    `forces_heldout_reading` in `plan_matrices.json`; the criterion text itself is unchanged.
+    `score_chirality_mlip.py` now gates on the environment RMSE and reports per-atom maxima without gating.
+  - Under this reading **ft2 passes the held-out force criterion** (worst environment 0.027 eV/Å), the NH₃⁺, CH₃
+    and rac ring profiles, and both R − rac energies.
+  - Still open:
+    - the rigid R ring profile (its 3.1 eV clash point);
+    - the MD-stability items: NVE drift ≤ 1 meV/atom/ps and the stop conditions, over production-length runs in
+      the production cell.
+  - Production MD stays NO-GO until the stability check passes.
 
 ## 1. Hypothesis under test
 

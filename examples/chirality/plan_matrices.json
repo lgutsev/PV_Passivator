@@ -33,6 +33,7 @@
  },
  "mlip_acceptance_criteria_fixed_before_production": {
   "forces_heldout": "per environment (N-H, C-H, C, N, Pb, I_axial, I_bridging): RMSE <= 0.05 eV/A and none > 0.08 eV/A on D9",
+  "forces_heldout_reading": "2026-11-16, owner: none > 0.08 applies per environment (environment RMSE), not per atom; per-atom maxima are reported but not gated. The criterion text above is unchanged.",
   "static_descriptors": "relaxed MLIP vs relaxed DFT (D1): same sign for every net tau; |delta net tau| <= 25 % of the DFT value; per-link tau within 0.02",
   "rotational_profiles": "D3/D4/D5 barriers within max(20 meV, 15 %) of DFT; profile RMSE <= 10 meV",
   "relative_energy": "R vs rac energy difference within 10 meV per formula unit",
