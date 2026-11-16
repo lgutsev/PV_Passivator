@@ -378,6 +378,45 @@ reasons are in §9.
     - Stage one: forces 100 / energy 1. Stage two from epoch 70: energy 1000 / forces 100.
     - 100 epochs, one gpu2 GPU, ≤ 1 GPU-h estimated.
     - Settings: `examples/chirality/finetune_overrides_ft2.json`.
+- **ft2 back (2026-11-16): LONI package 133, job 1185342.**
+  - Run: one A100, mace 0.3.15.
+  - Model: `D:\MLIP_Custom_Models\MACE\mba2pbi4_chirality_ft2.model`, sha256 `c051e23a…`, verified. This is the
+    stage-two model, from epoch 95.
+  - Stage two from epoch 70 lowered the validation energy RMSE from 0.44 to 0.12 meV/atom, with forces held at
+    4.5 meV/Å.
+  - Scores: `data/cache/chirality_scores/ft2_on_v2.json` and `ft2_relax.json`, on dataset v2.
+  - The held-out test is the rac NH₃⁺ scan plus the 54 D9 frames from independent MD seeds.
+
+    | Criterion | ft1 | ft2 | Required | ft2 |
+    |---|---|---|---|---|
+    | Test forces, worst environment RMSE | 0.113 eV/Å (C) | 0.027 (Pb); C 0.026, N 0.025 | ≤ 0.05 | **pass** |
+    | Test forces, largest single atom | 0.65 (C) | 0.16 (C), 0.14 (Pb), 0.13 (N), 0.12 (H on C) | "none > 0.08" | see below |
+    | NH₃⁺ rotor, R / rac | RMSE 2.7 / 4.2 | 228 / 243 vs 223 / 237 meV; RMSE 2.0 / 2.4 | max(20 meV, 15 %); ≤ 10 | **pass** |
+    | CH₃ rotor (valid, never trained) | 85 vs 162 meV | 158 vs 162; RMSE 1.9 | same | **pass** |
+    | Ring torsion, rac | 313 vs 371; RMSE 23 | 363 vs 371; RMSE 3.8 | same | **pass** |
+    | Ring torsion, R (rigid, includes a 3.1 eV clash point) | 2681 vs 3106; RMSE 161 | 2877 vs 3106; RMSE 91 | same | fail (barrier within 15 %, profile RMSE not) |
+    | R − rac, fixed cells | 15.4 vs 51.1 | 41.2 vs 51.1 meV/f.u. | within 10 | **pass** (9.9) |
+    | R − rac, free cells | 65.5 vs 75.0 | 75.1 vs 75.0 | within 10 | **pass** |
+    | Relax from the DFT minima | exact | ≤ 0.0001 Å; net τ equal | same sign, ≤ 25 % | pass (training minima) |
+
+  - **The clause "none > 0.08" is ambiguous.**
+    - Read as a per-environment RMSE cap, which is how `mlip_vs_dft_chirality.py` reads it, ft2 passes.
+    - Read as a per-atom maximum, which is how `score_chirality_mlip.py` reads it, ft2 fails: the largest errors
+      on thermal frames are 0.12–0.16 eV/Å.
+    - The text was written before any model existed and does not settle the question. It is the owner's call,
+      recorded here, not decided by the analysis.
+  - Reading:
+    - The D8 thermal frames fixed what ft1 lacked. Held-out thermal force errors drop about 4×.
+    - The never-trained CH₃ rotor is now reproduced to 2 meV RMSE.
+    - Both R − rac energies pass.
+    - What remains is per-atom error tails on thermal frames, and the rigid R ring clash point. Those 3.1 eV
+      geometries are far outside any thermal sampling.
+  - Gate status:
+    - Under the per-environment reading, ft2 passes every criterion that bears on MD sampling at 173–358 K.
+    - The full gate also needs the MD-stability items of the plan (NVE drift, stop conditions over long runs),
+      which have not been run with ft2.
+    - Production MD (~14 ns) remains NO-GO until the owner decides the "none > 0.08" reading and those stability
+      checks pass.
 
 ## 1. Hypothesis under test
 
