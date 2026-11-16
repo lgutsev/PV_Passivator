@@ -112,9 +112,10 @@ OUT=$PKG/results
 mkdir -p logs "$OUT" "$OUT/timing"
 rm -f "$OUT/DONE" "$OUT/FAILED" "$OUT/status.txt"
 trap 'echo "failed at line $LINENO" > "$OUT/FAILED"' ERR
-export PYTHONNOUSERSITE=1 TORCHDYNAMO_DISABLE=1 OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
+# no PYTHONNOUSERSITE: the shared env takes numpy (and maybe more) from ~/.local, as package 111 ran it (rev1, job 1182449)
+export TORCHDYNAMO_DISABLE=1 OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 ( cd inputs && sha256sum -c --quiet SHA256SUMS ) || { echo "inputs/ missing or changed" >&2; exit 2; }
-{ hostname; date; nvidia-smi; "$PY" -c 'import torch, mace, ase, nvalchemi; print("torch", torch.__version__, torch.cuda.get_device_name(0)); print("mace", mace.__version__, "ase", ase.__version__, "nvalchemi", getattr(nvalchemi, "__version__", "?"))'; } > "$OUT/node.txt" 2>&1
+{ hostname; date; nvidia-smi; "$PY" -c 'import torch, mace, ase, nvalchemi; print("torch", torch.__version__, torch.cuda.get_device_name(0)); print("mace", mace.__version__, "ase", ase.__version__, "nvalchemi", getattr(nvalchemi, "__version__", "?")); import numpy, e3nn, warp; [print(m.__name__, getattr(m, "__version__", "?"), m.__file__) for m in (numpy, torch, mace, ase, nvalchemi, e3nn, warp)]'; } > "$OUT/node.txt" 2>&1
 start=$(date +%s)
 
 # ---- models: path + sha256 on the LONI master; ft_v2 is optional (SKIP if absent)
@@ -172,6 +173,7 @@ def main():
     ap.add_argument("--backend", type=Path, required=True, help="alchemi_backend.py (adsorbate-search branch)")
     ap.add_argument("--backend-commit", default="")
     ap.add_argument("--min-date", default="2026-11-07")
+    ap.add_argument("--revision", type=int, default=0)
     a = ap.parse_args()
     root = a.out / a.name
     if root.exists():
@@ -274,7 +276,7 @@ node.txt, DONE or FAILED). Estimate 1.5-3 GPU node-h [I].
 """
     (root / "README.md").write_bytes(readme.encode())
     files = {f.relative_to(root).as_posix(): sha(f) for f in sorted(root.rglob("*")) if f.is_file() and f.name != "package.json"}
-    pkg = {"package": a.name, "status": "staged, not submitted", "created": dt.date.today().isoformat(),
+    pkg = {"package": a.name, "revision": a.revision, "status": "staged, not submitted", "created": dt.date.today().isoformat(),
            "generator": "examples/scripts/make_alchemi_periodic_package.py", "generator_commit": commit,
            "backend_source": {"file": "alchemi_backend.py", "branch": "acat-adsearch", "commit": a.backend_commit,
                               "sha256": sha(a.backend)},
