@@ -54,7 +54,11 @@ def main():
     port, d3_python = int(sys.argv[4]), sys.argv[5]
     out_dir.mkdir(parents=True, exist_ok=True)
     work.mkdir(parents=True, exist_ok=True)
-    for name in ("DONE", "FAILED", "INCOMPLETE"):
+    done = out_dir / "DONE"
+    if done.is_file():   # a verdict (PASS / FAIL / STOP) is final: a resubmission must not run past a stop (LONI 137)
+        print(f"unit already has a verdict, not rerunning: {done.read_text().strip()}")
+        return
+    for name in ("FAILED", "INCOMPLETE"):
         (out_dir / name).unlink(missing_ok=True)
     unit = json.loads((unit_dir / "unit.json").read_text())
     p = unit["protocol"]

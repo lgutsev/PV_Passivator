@@ -40,6 +40,16 @@ def test_package_layout(tmp_path):
     assert b"\r" not in (out / "inputs" / "R_358K" / "structure.extxyz").read_bytes()
 
 
+def test_runner_does_not_rerun_a_unit_with_a_verdict(tmp_path, monkeypatch):
+    out = tmp_path / "out"
+    out.mkdir()
+    (out / "DONE").write_text("STOP at step 41000 (20.50 ps, nve): topology\n")
+    monkeypatch.setattr(sys, "argv", ["run_stability.py", str(tmp_path / "in"), str(out), str(tmp_path / "runs"),
+                                      "31800", "python"])
+    RS.main()   # returns before reading inputs (tmp_path/in does not exist)
+    assert (out / "DONE").read_text().startswith("STOP") and not (out / "FAILED").exists()
+
+
 def test_checks_flag_proton_transfer_and_pass_clean_structure():
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
