@@ -4,7 +4,8 @@
 Protocol (unit.json): Langevin NVT at T for nvt_ps, then NVE (velocity Verlet) for nve_ps, in the production cell.
 Plan stop conditions (examples/chirality/plan_matrices.json, md stop_conditions), checked every check_every steps:
   * any stereocentre inverts (labels vs the starting structure, pvpassivator.chirality.stereocentres);
-  * any Pb not six-coordinate (Pb-I counted to mx_cut_A; thermal stretches reach ~4.1 A, the 7th I stays >= 5.4 A);
+  * any Pb not six-coordinate (Pb-I counted to mx_cut_A: 4.6 A since LONI 137, whose R run reached a 6th Pb-I of
+    4.31 A at 358 K with the 7th I >= 5.29 A; result.json records that margin as pb_i_shell_A);
   * NH3+ / molecule identity lost (organic bonds at covalent_scale x natural radii);
   * proton transfer: an ammonium H closer than 1.9 A to any I;
   * runaway forces (> 50 eV/A).
@@ -47,6 +48,18 @@ def checks(atoms, ref_top, ref_labels, n_mol, ch, p, np):
     if dmin < p["proton_transfer_HI_A"]:
         return f"proton transfer: ammonium H...I {dmin:.2f} A < {p['proton_transfer_HI_A']}"
     return None
+
+
+def pb_i_shell(frames, np):
+    """Margin of the Pb coordination rule over the saved frames: the longest 6th Pb-I and shortest 7th Pb-I (A)."""
+    sixth, seventh = [], []
+    for a in frames:
+        sym = np.array(a.get_chemical_symbols())
+        iod = np.where(sym == "I")[0]
+        d = np.sort(np.array([a.get_distances(int(p), iod, mic=True) for p in np.where(sym == "Pb")[0]]), axis=1)
+        sixth.append(float(d[:, 5].max()))
+        seventh.append(float(d[:, 6].min()))
+    return {"max_6th": round(max(sixth), 3), "min_7th": round(min(seventh), 3), "frames": len(frames)}
 
 
 def main():
@@ -144,7 +157,8 @@ def main():
                 if why:
                     marker = ("DONE", f"STOP at step {step} ({step * dt / 1000:.2f} ps, {phase}): {why}")
                     break
-        res = {"unit": unit["name"], "T_K": p["T_K"], "steps_done": step, "steps_total": total}
+        res = {"unit": unit["name"], "T_K": p["T_K"], "steps_done": step, "steps_total": total,
+               "pb_i_shell_A": pb_i_shell(read(traj, index=":"), np) if traj.is_file() else None}
         if marker is None and step >= total:
             import csv
             rows = [r for r in csv.DictReader(thermo.open()) if r["phase"] == "nve"]

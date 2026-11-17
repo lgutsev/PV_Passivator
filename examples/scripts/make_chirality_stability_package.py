@@ -26,7 +26,7 @@ STAB = ROOT / "examples" / "chirality" / "stability"
 D3_ENV = "/project/lgutsev/env/d3_torchdftd/bin/python"
 PROTOCOL = {"T_K": 358, "nvt_ps": 20.0, "nve_ps": 10.0, "dt_fs": 0.5, "friction_per_fs": 0.01, "seed": 7,
             "dtype": "float64", "sample_every": 20, "check_every": 200, "hours": 22.0,
-            "d3_cutoff_bohr": 40.0, "d3_cnthr_bohr": 30.0, "mx_cut_A": 4.3, "covalent_scale": 1.3,
+            "d3_cutoff_bohr": 40.0, "d3_cnthr_bohr": 30.0, "mx_cut_A": 4.6, "covalent_scale": 1.3,
             "proton_transfer_HI_A": 1.9, "max_drift_meV_atom_ps": 1.0}
 
 
@@ -79,9 +79,9 @@ cat "outputs/$unit/DONE" "outputs/$unit/INCOMPLETE" 2>/dev/null || true
 """
 
 
-def build_units(pkg105: Path, protocol: dict, model_cluster: str, temps=(358,)):
+def build_units(pkg105: Path, protocol: dict, model_cluster: str, temps=(358,), systems=("R", "rac")):
     units = {}
-    for key in ("R", "rac"):
+    for key in systems:
         p = pkg105 / "outputs" / f"{key}_fixcell" / "relax" / "CONTCAR"
         base = read(p, format="vasp")
         sc = base.repeat((2, 2, 1))
@@ -102,6 +102,7 @@ def main(argv=None) -> int:
     ap.add_argument("--account", default="loni_perovsk27")
     ap.add_argument("--partition", default="gpu2")
     ap.add_argument("--env", default="/project/lgutsev/env/mace_env")
+    ap.add_argument("--systems", nargs="+", choices=("R", "rac"), default=["R", "rac"])
     ap.add_argument("--overwrite", action="store_true")
     a = ap.parse_args(argv)
     for p in (a.model_cluster, a.env):
@@ -113,7 +114,7 @@ def main(argv=None) -> int:
             raise SystemExit(f"{out} exists (use --overwrite)")
         shutil.rmtree(out)
     msha = sha256(a.model_local)
-    units = build_units(a.pkg105, PROTOCOL, a.model_cluster)
+    units = build_units(a.pkg105, PROTOCOL, a.model_cluster, systems=a.systems)
     for name, (at, meta) in units.items():
         (out / "inputs" / name).mkdir(parents=True)
         write(out / "inputs" / name / "structure.extxyz", at, format="extxyz")

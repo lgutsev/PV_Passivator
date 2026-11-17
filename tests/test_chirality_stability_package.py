@@ -50,10 +50,34 @@ def test_runner_does_not_rerun_a_unit_with_a_verdict(tmp_path, monkeypatch):
     assert (out / "DONE").read_text().startswith("STOP") and not (out / "FAILED").exists()
 
 
+def test_pb_rule_tolerates_a_stretch_but_stops_a_lost_iodide():
+    """LONI 137 rule: a 6th Pb-I stretched to 4.4 A is still six-coordinate at 4.6 A; one pulled to 4.8 A is not."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        at = read(SDIR / "rac-MBA2PbI4_COD2201646.cif").repeat((2, 2, 1))   # the production cell
+    p = dict(M.PROTOCOL)
+    assert p["mx_cut_A"] == 4.6
+    top = ch.build_topology(at, mx_cut=p["mx_cut_A"], covalent_scale=p["covalent_scale"])
+    labels = ch.stereocentres(top, at)
+    sym = np.array(at.get_chemical_symbols())
+    pb = int(np.where(sym == "Pb")[0][0])
+    iod = np.where(sym == "I")[0]
+    j = int(iod[np.argmin(at.get_distances(pb, iod, mic=True))])
+    v = at.get_distance(pb, j, mic=True, vector=True)
+    out = {}
+    for r in (4.4, 4.8):
+        s = at.copy()
+        s.positions[j] += v * (r / np.linalg.norm(v) - 1)
+        out[r] = RS.checks(s, top, labels, len(top.molecules), ch, p, np)
+    shell = RS.pb_i_shell([at], np)
+    assert out[4.4] is None and out[4.8] is not None and "halides within 4.6" in out[4.8]
+    assert shell["max_6th"] < 3.5 < 5.0 < shell["min_7th"] and shell["frames"] == 1
+
+
 def test_checks_flag_proton_transfer_and_pass_clean_structure():
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        at = read(SDIR / "rac-MBA2PbI4_COD2201646.cif")
+        at = read(SDIR / "rac-MBA2PbI4_COD2201646.cif").repeat((2, 2, 1))   # the production cell
     p = dict(M.PROTOCOL)
     top = ch.build_topology(at, mx_cut=p["mx_cut_A"], covalent_scale=p["covalent_scale"])
     labels = ch.stereocentres(top, at)
