@@ -469,6 +469,19 @@ reasons are in §9.
     6th-neighbour stretch with a ≥ 5.3 Å 7th iodide should count as loss of six-coordination is the owner's call.
     If it should not, the rule has to be redefined in advance and R rerun. The post-stop continuation cannot count
     as that rerun. Production MD stays NO-GO.
+  - **Owner decision (2026-11-17): "No, redefine and rerun."** A stretched 6th Pb–I is not a loss of
+    six-coordination.
+    - New rule, set before the rerun: Pb is six-coordinate when exactly 6 iodides are within **4.6 Å**. The rule is
+      recorded as `pb_six_coordination_reading` in `plan_matrices.json`.
+    - Margins: 4.6 Å is 0.29 Å above the longest 6th Pb–I seen in 137 (4.31 Å) and 0.69 Å below the shortest 7th
+      (5.29 Å). Every saved frame of both 137 runs passes it.
+    - Test: a 6th Pb–I stretched to 4.4 Å passes, and one pulled to 4.8 Å stops.
+    - `result.json` now records the margin (`pb_i_shell_A`).
+    - rac stands as passed: it passed the stricter 4.3 Å rule.
+  - **R rerun staged, not sent:** `LONI_staging/chiral_stab2_mace_mba2pbi4`, hand-off
+    `HANDOFF_TO_DISPATCH_chiral_stab2.md`.
+    - R_358K only, fresh run, same protocol and model as 137 apart from the cut.
+    - About 14–15 GPU-h on an A100.
 
 ## 1. Hypothesis under test
 
