@@ -396,7 +396,7 @@ Package `131_vasp_pvpass_mel2_acat_searchbest_statics` (job 1183184): 2/2 done, 
 - Forces near the molecules are within threshold on both frames (pooled 0.033 eV/Å). The cosine criterion is not meaningful at the model's own minima (§8e).
 - Limits: two single points at model geometries. Neither is a DFT minimum (DFT forces up to 0.15–0.21 eV/Å on some atom), the pilot sampled 64 attempts, and nothing says a still lower arrangement does not exist. The result is "a search with this model found, and correctly ranked, a structure better than the hand-built ones", not "the global minimum".
 
-## 8l. DPA-4 trial (LONI package 138, 2026-11-16): smoke stage running
+## 8l. DPA-4 trial (LONI package 138, 2026-11-16/17): blocked by the cluster module version
 
 Same-data comparison of a pretrained DPA-4 fine-tuned on the 40 frames of §8i (same target, same five folds) against the round-3 MACE model. Generator `examples/scripts/prepare_dpa4_trial.py`. Owner authorized the download and a one-hour smoke job only; the fold array waits for the smoke report.
 
@@ -408,6 +408,12 @@ Pretrained checkpoint (OMat24, PBE-level labels; licence CC-BY-NC-4.0 per the mo
 | `DPA4-Neo-OMat24-v20260805.json` | 3,654 | `3ca5ec05a3d3f626034e463f09ebf1673fe377aca40381062efb50825061409b` |
 
 Smoke job 1186734 tests whether the cluster's deepmd 3.2.0 beta module loads this checkpoint, gives zero-shot predictions on all 40 frames, and times 100 fine-tune steps.
+
+**Smoke result (2026-11-17): the module cannot use the released checkpoint.** Job 1186734 (A100 80 GB, torch 2.11.0+cu126, deepmd 3.2.0b0) stopped after 38 s:
+- Zero-shot load fails with size mismatches: the beta builds a narrower DPA-4 than the released one (`so3_linear_1` [4, 32, 192] against [4, 32, 576] in the checkpoint; `so3_linear_2` [4, 96, 32] against [4, 288, 32]; same in both blocks and the output FFN).
+- The fine-tune is rejected at input parsing: the beta requires `model/descriptor/type`, which the released config does not have (it sets `model.type: "SeZM"`). The local deepmd 3.2.0 release accepted a config of the same shape and got as far as building the neighbour list, so this is a beta-versus-release difference.
+- No accuracy, step time or memory figure exists. Running the trial needs a deepmd 3.2.0 release environment on the cluster (with `vesin` or `nvalchemiops` for DPA-4's neighbour list). Not prepared.
+
 
 ## 9. Reproduce
 
