@@ -441,6 +441,34 @@ reasons are in §9.
     - runaway force.
   - PASS also needs |NVE drift| ≤ 1 meV/atom/ps.
   - Ran end to end locally on the CPU with a tiny protocol. About 3–8 GPU-h on LONI.
+- **MD-stability check back: LONI 137 (2026-11-17, A100 80GB).** The array was submitted twice: 1185807 and
+  1186690. The desk reported only 1186690.
+  - **rac_358K: PASS.**
+    - Task 1185807_1 ran the full 30 ps with no stop condition. NVE drift was 0.0004 meV/atom/ps, and NVT ⟨T⟩ was
+      366.7 K.
+    - 1186690_1 then restarted from the step-55 800 frame while the first run was still writing. That left 21
+      duplicate frames and 210 duplicate thermo rows in the same files.
+    - The two tails are clean and diverge only by chaos (≤ 0.23 Å; E_tot within 1 meV).
+    - Drift from either deduplicated copy is 0.0003 meV/atom/ps.
+    - The largest 6th Pb–I distance is 4.27 Å, and the 7th iodide stays ≥ 5.37 Å.
+  - **R_358K: STOP under the protocol as written.**
+    - Task 1185807_0 stopped at step 41 000 (20.50 ps, the first 0.5 ps of NVE): "Pb 357 has 5 halides within
+      4.3 Å".
+    - The 6th Pb–I distance was **4.309 Å**, 9 mÅ past the cut. The 7th iodide was at 5.87 Å, so this is a stretch,
+      not a lost iodide.
+    - Earlier in the run, Pb 169 reached 4.299 Å at 14.4 ps. Eleven saved frames have a 6th Pb–I distance above
+      4.1 Å. The 4.3 Å cut was set from earlier runs, whose longest stretch was 4.10 Å, so the margin is smaller
+      than assumed.
+    - 1186690_0 then resumed from that frame and ran to 30 ps. Its "PASS" (drift 0.0005 meV/atom/ps) is not the
+      protocol's verdict, because the runner did not treat an earlier STOP as final.
+    - No other stop condition fired anywhere in either unit: stereocentres, molecule/NH₃⁺ identity, ammonium
+      H…I ≥ 1.9 Å, and forces ≤ 8.7 eV/Å.
+  - Runner fix: `run_stability.py` now exits without running when `DONE` already holds a verdict, so a
+    resubmission cannot run past a stop. Test: `test_runner_does_not_rerun_a_unit_with_a_verdict`.
+  - **Gate status:** the stability item is not passed. R tripped the Pb coordination stop by 9 mÅ. Whether a
+    6th-neighbour stretch with a ≥ 5.3 Å 7th iodide should count as loss of six-coordination is the owner's call.
+    If it should not, the rule has to be redefined in advance and R rerun. The post-stop continuation cannot count
+    as that rerun. Production MD stays NO-GO.
 
 ## 1. Hypothesis under test
 
