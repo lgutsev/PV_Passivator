@@ -190,7 +190,9 @@ ls -lL
 '''
 
 BUILD_ENV = r'''#!/bin/bash
-# Run ONCE on a login node (needs internet), before any sbatch: a deepmd-kit __DPVER__ release environment.
+# Run ONCE inside srun on a compute node (needs internet), before any sbatch: a deepmd-kit __DPVER__ release environment.
+# Environment builds never run on a login node (owner's standing rule, desk, since package 59), e.g.
+#   srun -p single -N 1 -n 1 -c 8 -t 01:00:00 -A <account> bash build_env.sh
 # The 3.2.0b0 module builds a narrower DPA-4 than the released checkpoints (package 138, job 1186734).
 # deepmd-kit[torch]==__DPVER__ pins torch 2.11 and pulls vesin[torch], DPA-4's neighbour list. A few GB on disk.
 # An existing environment is reused (only checked); delete it by hand to rebuild.
@@ -339,11 +341,11 @@ def main(argv=None) -> int:
     lf(out / "run_dpa4_folds.slurm", fill(FOLDS, JOB="dpa4-folds", TIME="08:00:00", ARRAY="#SBATCH --array=0-5%3\n",
                                            PURPOSE="fine-tune five folds (0-4) and the all-frames model (5), then predict"))
     lf(out / "export.list", "outputs/*/env.txt\noutputs/*/*.log\noutputs/*/timing.txt\noutputs/*/input.json\noutputs/*/lcurve.out\n"
-                            "outputs/*/pred/*\noutputs/*/zeroshot/*\noutputs/*/after100/*\noutputs/*/model_final.pt\noutputs/*/DONE\nlogs/*\npretrained/SHA256SUMS\n")
+                            "outputs/*/pred/*\noutputs/*/zeroshot/*\noutputs/*/after100/*\noutputs/*/model_final.pt\noutputs/*/DONE\nlogs/*\npretrained/SHA256SUMS\nenv_check.txt\nenv_freeze.txt\n")
     lf(out / "logs" / ".keep", "")
     lf(out / ".gitattributes", "# keep data byte-identical to SHA256SUMS\n*.npy binary\n*.raw -text\n*.txt -text\n")
     n_frames = {k: sum(len(v) for v in d.values()) for k, d in layout.items()}
-    env_step = (f"1. `bash build_env.sh` on a login node (internet, once): deepmd-kit {a.deepmd_version} release environment at "
+    env_step = (f"1. `bash build_env.sh` inside srun on a compute node, never on a login node (internet, once): deepmd-kit {a.deepmd_version} release environment at "
                 f"`{a.env}` (reused if present); writes `env_check.txt`, `env_freeze.txt`.\n") if a.runtime == "venv" else ""
     runtime_line = (f"whether the deepmd-kit {a.deepmd_version} release environment loads the released checkpoint (the 3.2.0b0 module did not, package 138);"
                     if a.runtime == "venv" else f"whether module `{a.module}` reads a checkpoint and config released for deepmd 3.2.0;")
