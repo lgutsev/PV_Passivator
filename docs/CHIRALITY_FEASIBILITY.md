@@ -482,6 +482,16 @@ reasons are in §9.
     `HANDOFF_TO_DISPATCH_chiral_stab2.md`.
     - R_358K only, fresh run, same protocol and model as 137 apart from the cut.
     - About 14–15 GPU-h on an A100.
+- **R rerun back: LONI 140 (2026-11-19, job 1189314, single submission, A100 80GB, 14 h 06 min). R_358K: PASS.**
+  - Ran the full 30 ps (60 000 steps) with no stop condition under the 4.6 Å Pb rule.
+  - NVE drift 0.0001 meV/atom/ps (1000 frames); NVT ⟨T⟩ 361.2 K; largest force 8.2 eV/Å.
+  - Pb–I shell over the 300 saved frames: longest 6th 4.309 Å, shortest 7th 5.283 Å. The same seed reproduces the
+    137 stretch at 20.5 ps, which now sits 0.29 Å inside the cut.
+  - Independent recheck here of every saved frame: no stop condition; all 32 stereocentres stay R.
+  - Caveat: this is one seed and the same starting velocities as 137, a stability test of the model, not an
+    ensemble or a physical result.
+  - **Gate status:** ft2 passes the MD-stability item for both R and rac at 358 K. Only the rigid R ring profile
+    (the 3.1 eV clash point) remains open. Production MD stays NO-GO until the owner rules on that item.
 
 ## 1. Hypothesis under test
 
