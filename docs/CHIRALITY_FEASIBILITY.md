@@ -513,6 +513,22 @@ reasons are in §9.
   - It cites an earlier low-temperature transition reported by Xie et al. in chiral 2D perovskites.
   - No DSC value for (R-MBA)₂PbI₄ was found. The 173–358 K window is not contradicted, but it is not verified by DSC
     either.
+- **Production plan decisions (2026-11-19, owner):**
+  - The first production package is an HPC throughput benchmark plus a short NPT pilot. At the measured float64
+    A100 speed (0.85 s/step for 752 atoms), the full 51-run plan is roughly 7000 A100-h.
+  - S runs are dropped: an exact inversion of R under an O(3)-invariant model is a mirror of an R run. They are
+    replaced by extra R seeds, and mirror equality is reported analytically.
+  - The committee-uncertainty stop is replaced by r2SCAN single-point spot checks (~20 frames per condition), gated
+    on the per-environment force criterion.
+  - All three are recorded as `production_decisions` in `plan_matrices.json`.
+- **Pilot staged, not sent:** `LONI_staging/chiral_pilot1_mace_mba2pbi4`, hand-off `HANDOFF_TO_DISPATCH_chiral_pilot1.md`.
+  - Runner: `examples/chirality/production/bench_npt.py`. Generator: `make_chirality_pilot_package.py`.
+  - bench: float32 vs float64 differences and s/step with and without D3, for R and rac.
+  - npt_R / npt_rac: 5 ps MTK NPT at 358 K, P = 0, from the 140 / 137 thermal frames, with the stability stop
+    conditions. They report the cell against the start and against the DFT free cell.
+  - The NPT start cell is the experimental fixed cell. In the local smoke test its volume is about 5 % above the
+    2×2×1 DFT free-cell minimum (0 K), so some cell relaxation is expected.
+  - About 4–5 A100-h. The hand-off leaves the submit command to the desk.
 
 ## 1. Hypothesis under test
 
