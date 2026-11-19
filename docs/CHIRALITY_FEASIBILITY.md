@@ -492,6 +492,14 @@ reasons are in §9.
     ensemble or a physical result.
   - **Gate status:** ft2 passes the MD-stability item for both R and rac at 358 K. Only the rigid R ring profile
     (the 3.1 eV clash point) remains open. Production MD stays NO-GO until the owner rules on that item.
+  - **Owner decision (2026-11-19): "Accept, outside sampling."** The rigid R ring miss is driven by its 3.1 eV clash
+    point, far above anything sampled at 173–358 K; it no longer blocks production MD. Recorded as
+    `rigid_r_ring_reading` in `plan_matrices.json`.
+  - **Gate status: ft2 + D3(BJ, r2SCAN) clears every gate item** (held-out forces per environment, rotor profiles
+    with the ring item accepted, R − rac energies, MD stability for R and rac at 358 K).
+  - Production MD is no longer blocked by the gate, but it is a new GPU campaign: nothing is staged or submitted
+    without the owner's go-ahead. Its trajectories remain model predictions to be checked against DFT, not validated
+    physics.
 
 ## 1. Hypothesis under test
 
