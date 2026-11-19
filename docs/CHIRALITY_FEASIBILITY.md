@@ -500,6 +500,19 @@ reasons are in §9.
   - Production MD is no longer blocked by the gate, but it is a new GPU campaign: nothing is staged or submitted
     without the owner's go-ahead. Its trajectories remain model predictions to be checked against DFT, not validated
     physics.
+- **Gate correction and stress check (2026-11-19).** The gate also has a stress item, "within 0.3 GPa on D7 if NPT
+  is used", which I had not scored. ft2 was trained without stress labels, and the plan's protocol starts with NPT.
+  - Scored now by `examples/scripts/score_chirality_stress.py`: ft2 + D3 against the VASP total stress on the D1
+    fixed-cell statics and the eight D7 strain statics.
+  - Largest component error: 0.115 GPa (rac +2 %). Errors relative to the unstrained cell are ≤ 0.08 GPa. **Pass.**
+  - At the converged free-cell DFT cells (relaxed at ENCUT 676), DFT pressure is 0.04–0.05 GPa and ft2 + D3 gives
+    0.07–0.08 GPa, so NPT with the model should stay near the DFT cell.
+- **Phase-transition check (plan requirement), partial [V, abstracts only]:**
+  - A Brookhaven report on MBA₂PbI₄ found no structural phase transition between 90 and 360 K, with a caveat about
+    stacking faults or mixed phases.
+  - It cites an earlier low-temperature transition reported by Xie et al. in chiral 2D perovskites.
+  - No DSC value for (R-MBA)₂PbI₄ was found. The 173–358 K window is not contradicted, but it is not verified by DSC
+    either.
 
 ## 1. Hypothesis under test
 
