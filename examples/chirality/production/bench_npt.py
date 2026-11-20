@@ -49,29 +49,28 @@ def bench(unit, unit_dir, out_dir, port, d3_python, info):
     from mace.calculators import MACECalculator
     p = unit["protocol"]
     res = {}
+    import torch
+    dev = os.environ.get("STAB_DEVICE", "cuda")
     for k, sysname in enumerate(unit["systems"]):
         frames = read(unit_dir / f"frames_{sysname}.extxyz", index=":")
-        m = {dt: MACECalculator(model_paths=unit["model_path"], device=os.environ.get("STAB_DEVICE", "cuda"), default_dtype=dt) for dt in ("float64", "float32")}
-        props = {}
-        for dt, calc in m.items():
-            e, f, s = [], [], []
-            for a in frames:
-                b = a.copy()
-                b.calc = calc
-                e.append(b.get_potential_energy())
-                f.append(b.get_forces().copy())
-                s.append(b.get_stress(voigt=True).copy())
-            props[dt] = (np.array(e), np.array(f), np.array(s))
         n = len(frames[0])
-        dF = props["float32"][1] - props["float64"][1]
-        acc = {"frames": len(frames), "max_dE_meV_atom": float(np.abs(props["float32"][0] - props["float64"][0]).max() / n * 1000),
-               "max_dF_eV_A": float(np.abs(dF).max()), "rms_dF_eV_A": float(np.sqrt((dF ** 2).mean())),
-               "max_dstress_GPa": float(np.abs(props["float32"][2] - props["float64"][2]).max() / units.GPa)}
+        props, timing = {}, {}
         d3 = SocketIOCalculator(port=port + k)
         cl = d3_client(d3_python, unit_dir / f"frames_{sysname}.extxyz", port + k, p, out_dir / "d3_client.log")
-        timing = {}
         try:
-            for dt, calc in m.items():
+            # One precision at a time: MACECalculator sets torch's global default dtype, so building a float32 model
+            # next to a float64 one feeds float32 inputs to the float64 model (LONI 146 rev0 crash).
+            for dt in ("float64", "float32"):
+                torch.set_default_dtype(getattr(torch, dt))
+                calc = MACECalculator(model_paths=unit["model_path"], device=dev, default_dtype=dt)
+                e, f, s = [], [], []
+                for a in frames:
+                    b = a.copy()
+                    b.calc = calc
+                    e.append(b.get_potential_energy())
+                    f.append(b.get_forces().copy())
+                    s.append(b.get_stress(voigt=True).copy())
+                props[dt] = (np.array(e), np.array(f), np.array(s))
                 for with_d3 in (False, True):
                     a = frames[0].copy()
                     MaxwellBoltzmannDistribution(a, temperature_K=358, rng=np.random.default_rng(1))
@@ -82,12 +81,19 @@ def bench(unit, unit_dir, out_dir, port, d3_python, info):
                     t = time.time()
                     dyn.run(p["bench_steps"])
                     timing[f"{dt}{'+D3' if with_d3 else ''}"] = round((time.time() - t) / p["bench_steps"], 4)
+                del calc
+                if dev == "cuda":
+                    torch.cuda.empty_cache()
         finally:
             d3.close()
             try:
                 cl.wait(timeout=60)
             except subprocess.TimeoutExpired:
                 cl.kill()
+        dF = props["float32"][1] - props["float64"][1]
+        acc = {"frames": len(frames), "max_dE_meV_atom": float(np.abs(props["float32"][0] - props["float64"][0]).max() / n * 1000),
+               "max_dF_eV_A": float(np.abs(dF).max()), "rms_dF_eV_A": float(np.sqrt((dF ** 2).mean())),
+               "max_dstress_GPa": float(np.abs(props["float32"][2] - props["float64"][2]).max() / units.GPa)}
         timing["D3_share_float64"] = round(timing["float64+D3"] - timing["float64"], 4)
         ps_per_day = {k2: round(86400 / v * p["dt_fs"] / 1000, 1) for k2, v in timing.items() if "+D3" in k2}
         res[sysname] = {"natoms": n, "float32_vs_float64": acc, "s_per_step": timing, "ps_per_gpu_day": ps_per_day}
@@ -131,7 +137,7 @@ def npt(unit, unit_dir, out_dir, work, port, d3_python, info):
             dyn.run(p["sample_every"])
             step += p["sample_every"]
             per = (time.time() - t) / p["sample_every"]
-            pres = float(-atoms.get_stress(voigt=True)[:3].mean() / units.GPa)
+            pres = float(-atoms.get_stress(voigt=True, include_ideal_gas=True)[:3].mean() / units.GPa)   # incl. kinetic term (rev0: virial only)
             row = [step, step * p["dt_fs"] / 1000, atoms.get_temperature(), atoms.get_potential_energy(),
                    atoms.get_volume(), *cellpar_row(atoms), pres, per]
             rows.append(row)
