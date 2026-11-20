@@ -529,6 +529,26 @@ reasons are in §9.
   - The NPT start cell is the experimental fixed cell. In the local smoke test its volume is about 5 % above the
     2×2×1 DFT free-cell minimum (0 K), so some cell relaxation is expected.
   - About 4–5 A100-h. The hand-off leaves the submit command to the desk.
+- **Pilot back: LONI 146 rev0 (2026-11-20, job 1192988, A100 80GB).** Both NPT units passed; the bench crashed.
+  - **npt_R_358K: PASS**, 5 ps MTK NPT with no stop condition.
+    - Volume +1.2 % over the start (experimental) cell, and +4.6 % over the 0 K DFT free cell (a +1.8, b +2.3,
+      c +0.5 %).
+    - Volume is flat after the first ps (1-ps block means 9526–9533 Å³). The "+0.31 %/ps" slope in result.json is a
+      fit to fluctuations.
+    - Largest 6th Pb–I 4.24 Å, shortest 7th 5.72 Å. Angles fluctuate within about 1.3° of 90°.
+  - **npt_rac_358K: PASS**, 5 ps.
+    - Volume +0.1 % over the start cell and +5.1 % over the DFT free cell. It still creeps up by about 0.6 % over the
+      5 ps (block means 4743 → 4772 Å³).
+    - Largest 6th Pb–I 4.17 Å, shortest 7th 5.47 Å.
+  - Pressure: the logged ≈ −0.40 GPa is the virial part only. The kinetic term at 358 K is ≈ +0.39 GPa, so the
+    barostat held P ≈ 0. The runner now logs the full pressure.
+  - Measured cost under NPT, float64 + D3: R 0.88 s/step, rac 0.53 s/step.
+  - **bench: FAILED.** Building the float32 calculator next to the float64 one switched torch's global default dtype
+    (mace 0.3.15 on LONI), and the float64 model crashed. Local mace 0.3.16 converts silently, so the local test
+    missed it.
+    - Fixed in 83bc32b: one precision at a time. Revision 1 reruns the bench only.
+  - Reading: ft2 + D3 is stable under NPT at 358 K. The volume excess over the 0 K DFT cell is consistent with
+    thermal expansion plus the start cell, but 5 ps is too short to call it converged.
 
 ## 1. Hypothesis under test
 
