@@ -549,6 +549,20 @@ reasons are in §9.
     - Fixed in 83bc32b: one precision at a time. Revision 1 reruns the bench only.
   - Reading: ft2 + D3 is stable under NPT at 358 K. The volume excess over the 0 K DFT cell is consistent with
     thermal expansion plus the start cell, but 5 ps is too short to call it converged.
+- **Bench back: LONI 146 rev1 (2026-11-21, job 1195009, A100 80GB, 854 s).**
+
+  | | MACE f64 | MACE f32 | f64 + D3 | f32 + D3 | D3 share | ps / A100-day (f64 + D3) |
+  |---|---|---|---|---|---|---|
+  | R (752 atoms) | 0.137 s | 0.100 s | 0.836 s | 0.802 s | 0.70 s (84 %) | 51.7 |
+  | rac (376 atoms) | 0.072 s | 0.055 s | 0.471 s | 0.454 s | 0.40 s (85 %) | 91.8 |
+
+  - float32 vs float64 on 20 thermal frames each: max ΔF 1.3×10⁻⁴ eV/Å, max ΔE 0.013 meV/atom, max Δσ 2×10⁻⁵ GPa.
+    float32 is numerically equivalent, but it saves only about 4 %, because **D3 (torch-dftd over the ASE socket,
+    40 bohr cutoff) takes about 85 % of every step.**
+  - Cost at this speed, for the owner's main matrix (S dropped; R 6 seeds + rac 3 seeds × 3 temperatures; 335 ps per
+    run = 25 NPT + 250 NVT + 3 × 20 NVE):
+    - R ≈ 155 A100-h per run and rac ≈ 88; main matrix ≈ 3600 A100-h.
+    - If D3 cost as little as MACE, the main matrix would drop to roughly 600–700 A100-h.
 
 ## 1. Hypothesis under test
 
