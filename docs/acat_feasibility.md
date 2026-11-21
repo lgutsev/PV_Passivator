@@ -396,7 +396,7 @@ Package `131_vasp_pvpass_mel2_acat_searchbest_statics` (job 1183184): 2/2 done, 
 - Forces near the molecules are within threshold on both frames (pooled 0.033 eV/Å). The cosine criterion is not meaningful at the model's own minima (§8e).
 - Limits: two single points at model geometries. Neither is a DFT minimum (DFT forces up to 0.15–0.21 eV/Å on some atom), the pilot sampled 64 attempts, and nothing says a still lower arrangement does not exist. The result is "a search with this model found, and correctly ranked, a structure better than the hand-built ones", not "the global minimum".
 
-## 8l. DPA-4 trial (LONI package 138, 2026-11-16/17): blocked by the cluster module version
+## 8l. DPA-4 trial (LONI package 138, 2026-11-16 to 20): smoke passes in a release environment
 
 Same-data comparison of a pretrained DPA-4 fine-tuned on the 40 frames of §8i (same target, same five folds) against the round-3 MACE model. Generator `examples/scripts/prepare_dpa4_trial.py`. Owner authorized the download and a one-hour smoke job only; the fold array waits for the smoke report.
 
@@ -413,6 +413,12 @@ Smoke job 1186734 tests whether the cluster's deepmd 3.2.0 beta module loads thi
 - Zero-shot load fails with size mismatches: the beta builds a narrower DPA-4 than the released one (`so3_linear_1` [4, 32, 192] against [4, 32, 576] in the checkpoint; `so3_linear_2` [4, 96, 32] against [4, 288, 32]; same in both blocks and the output FFN).
 - The fine-tune is rejected at input parsing: the beta requires `model/descriptor/type`, which the released config does not have (it sets `model.type: "SeZM"`). The local deepmd 3.2.0 release accepted a config of the same shape and got as far as building the neighbour list, so this is a beta-versus-release difference.
 - No accuracy, step time or memory figure exists. Running the trial needs a deepmd 3.2.0 release environment on the cluster (with `vesin` or `nvalchemiops` for DPA-4's neighbour list). Not prepared.
+
+**Revision 1 smoke (2026-11-20, job 1195003, A100 80 GB, deepmd 3.2.0 release venv, torch 2.11.0+cu126): passed.** A first attempt (job 1190328) died at import because the node's default Intel-MPI library path broke the venv's MPI; the desk now purges modules and unsets `LD_LIBRARY_PATH` before activating (ported to the generator).
+- Zero-shot (no fine-tune), all frames finite: force RMSE 0.127 eV/Å on the molecule, 0.13 eV/Å on the 567–597-atom cells (all atoms); a constant energy offset of about 6.5 keV per frame (reference shift); relative energies within a composition 0.07–0.20 eV MAE.
+- 100 fine-tune steps on fold 0 (learning rate 1e-4 to 1e-6 within those steps), then fold 0's held-out test frames: force RMSE over all atoms 0.020 eV/Å on the eight two-melamine frames (round-3 MACE, same fold: 0.013), relative energy MAE 0.131 eV (round-3 MACE: 0.040). A short run, so not the comparison; it shows the fine-tune moves the model fast.
+- Cost: 3.3 s per step averaged over 100 steps including a 3-minute first step; prediction 0.06 s per 597-atom frame.
+- The five folds plus the all-frames model (4,000 steps each) are not run; at the measured rate they need roughly 6–22 GPU-hours.
 
 
 ## 9. Reproduce
