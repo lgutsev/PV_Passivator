@@ -563,6 +563,25 @@ reasons are in §9.
     run = 25 NPT + 250 NVT + 3 × 20 NVE):
     - R ≈ 155 A100-h per run and rac ≈ 88; main matrix ≈ 3600 A100-h.
     - If D3 cost as little as MACE, the main matrix would drop to roughly 600–700 A100-h.
+- **D3 speed-up (owner, 2026-11-21: "Speed up D3 first").**
+  - Candidate: the in-process GPU DFT-D3(BJ) of the ALCHEMI toolkit (nvalchemiops Warp kernels, analytic forces and
+    virial), already on LONI in `alchemi_check` (package 129).
+  - Wrapped as an ASE calculator: `examples/chirality/production/warp_d3.py`, r2SCAN BJ parameters as torch-dftd.
+    The Grimme reference tables are shipped as a .pt file, so the node needs no download.
+  - Checked against torch-dftd on a rac thermal frame (40 bohr, CPU): ΔE 3.5×10⁻⁶ eV, ΔF ≤ 2×10⁻⁶ eV/Å,
+    Δσ ≤ 3×10⁻⁶ GPa.
+  - Laptop GPU smoke test (rac): 0.015 s per D3 call against 0.25 s for torch-dftd, and MACE + Warp D3 costs about
+    0.01 s/step more than MACE alone. The 20 Å / 20 % smoothed cutoff differs from the 95-bohr label convention by
+    ≤ 9×10⁻⁵ eV/Å.
+  - **Staged, not sent:** `LONI_staging/chiral_d3speed_mace_mba2pbi4`, hand-off `HANDOFF_TO_DISPATCH_chiral_d3speed.md`.
+    - Contents: torch-dftd references (95 and 40 bohr), ft2 parity between mace_env and alchemi_check, five Warp
+      cutoff settings for accuracy and s/step, and a 2 ps NVE drift test at 20 Å / smoothing 0.2.
+    - Runner `d3_bench.py`, generator `make_chirality_d3_package.py`. About 1–2 A100-h.
+  - Proposed acceptance for a production D3 setting, to be fixed before the results:
+    - against the 95-bohr label convention, max ΔF ≤ 0.005 eV/Å (a fifth of ft2's worst environment RMSE);
+    - relative ΔE ≤ 0.1 meV/atom, and Δσ ≤ 0.02 GPa;
+    - ft2 parity between envs at float64 round-off;
+    - NVE drift ≤ 1 meV/atom/ps.
 
 ## 1. Hypothesis under test
 
