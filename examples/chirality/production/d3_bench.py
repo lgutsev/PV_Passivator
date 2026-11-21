@@ -22,6 +22,7 @@ import numpy as np
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 GPA = 160.21766208   # eV/A^3 -> GPa
+DEV = os.environ.get("D3B_DEVICE", "cuda")   # "cpu" only for local smoke tests
 
 
 def frames(inp, sysname):
@@ -58,7 +59,8 @@ def stage_ref(inp, out, unit):
     for sysname in unit["systems"]:
         fr = frames(inp, sysname)[: unit["n_ref_frames"]]
         res = {}
-        for tag, (cut, cn) in {"label": (95.0, 40.0), "md": (40.0, 30.0)}.items():
+        lab = unit.get("ref_label_bohr", [95.0, 40.0])   # torch-dftd defaults; a smaller value only for local smoke tests
+        for tag, (cut, cn) in {"label": tuple(lab), "md": (40.0, 30.0)}.items():
             calc = TorchDFTD3Calculator(damping="bj", xc="r2scan", cutoff=cut * units.Bohr, cnthr=cn * units.Bohr,
                                         dtype=torch.float64, device=dev)
             e, f, s, t = efs(fr, calc, repeats=unit["time_repeats"])
@@ -69,7 +71,7 @@ def stage_ref(inp, out, unit):
 
 def stage_maceref(inp, out, unit):
     from mace.calculators import MACECalculator
-    calc = MACECalculator(model_paths=unit["model_path"], device="cuda", default_dtype="float64")
+    calc = MACECalculator(model_paths=unit["model_path"], device=DEV, default_dtype="float64")
     for sysname in unit["systems"]:
         e, f, s, _ = efs(frames(inp, sysname)[: unit["n_ref_frames"]], calc)
         np.savez(out / f"maceref_{sysname}.npz", E=e, F=f, S=s)
@@ -106,9 +108,9 @@ def stage_main(inp, out, unit):
     import ase, mace, nvalchemiops, warp
     res["versions"] = {"torch": torch.__version__, "mace": mace.__version__, "ase": ase.__version__,
                        "nvalchemiops": getattr(nvalchemiops, "__version__", "?"), "warp": warp.__version__,
-                       "gpu": torch.cuda.get_device_name(0)}
+                       "gpu": torch.cuda.get_device_name(0) if DEV == "cuda" else "cpu"}
     torch.set_default_dtype(torch.float64)
-    mace64 = MACECalculator(model_paths=unit["model_path"], device="cuda", default_dtype="float64")
+    mace64 = MACECalculator(model_paths=unit["model_path"], device=DEV, default_dtype="float64")
     pfile = inp / "dftd3_parameters.pt"
     for sysname in unit["systems"]:
         fr = frames(inp, sysname)
@@ -124,7 +126,7 @@ def stage_main(inp, out, unit):
         r["warp"] = {}
         for v in unit["variants"]:
             name = f"{v['cutoff_A']:g}A_s{v['smoothing']:g}"
-            calc = WarpD3(pfile, cutoff_A=v["cutoff_A"], smoothing_fraction=v["smoothing"])
+            calc = WarpD3(pfile, cutoff_A=v["cutoff_A"], smoothing_fraction=v["smoothing"], device=DEV)
             e, f, s, t = efs(fr[:k], calc, repeats=p["time_repeats"])
             r["warp"][name] = {"s_per_call": round(t, 5), "vs_label": err(e, f, s, ref["label_E"], ref["label_F"], ref["label_S"], n),
                                "vs_md40": err(e, f, s, ref["md_E"], ref["md_F"], ref["md_S"], n)}
@@ -133,7 +135,7 @@ def stage_main(inp, out, unit):
         r["md_s_per_step"] = {"mace_f64_alone": md_time(start, mace64, p["md_steps"], p["md_warm"], p["dt_fs"])}
         for v in unit["variants"]:
             name = f"{v['cutoff_A']:g}A_s{v['smoothing']:g}"
-            calc = SumCalculator([mace64, WarpD3(pfile, cutoff_A=v["cutoff_A"], smoothing_fraction=v["smoothing"])])
+            calc = SumCalculator([mace64, WarpD3(pfile, cutoff_A=v["cutoff_A"], smoothing_fraction=v["smoothing"], device=DEV)])
             r["md_s_per_step"][f"mace_f64+warp_{name}"] = md_time(start, calc, p["md_steps"], p["md_warm"], p["dt_fs"])
         r["ps_per_gpu_day"] = {kk: round(86400 / vv * p["dt_fs"] / 1000, 1) for kk, vv in r["md_s_per_step"].items()}
         res[sysname] = r
@@ -143,7 +145,7 @@ def stage_main(inp, out, unit):
     nv = unit["nve"]
     a = read(inp / "nve_start.extxyz")
     assert a.get_momenta().any()
-    a.calc = SumCalculator([mace64, WarpD3(pfile, cutoff_A=nv["cutoff_A"], smoothing_fraction=nv["smoothing"])])
+    a.calc = SumCalculator([mace64, WarpD3(pfile, cutoff_A=nv["cutoff_A"], smoothing_fraction=nv["smoothing"], device=DEV)])
     dyn = VelocityVerlet(a, p["dt_fs"] * units.fs)
     rows, step, total = [], 0, int(round(nv["ps"] * 1000 / p["dt_fs"]))
     t0 = time.time()
