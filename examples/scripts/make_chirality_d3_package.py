@@ -115,6 +115,7 @@ def main(argv=None) -> int:
     files = ["d3_bench.py", "warp_d3.py"] + [p.relative_to(out).as_posix() for p in sorted(inp.rglob("*")) if p.is_file()]
     lf(out / "SHA256SUMS", "".join(f"{sha256(out / f)}  {f}\n" for f in files))
     lf(out / "export.list", "outputs/*\nlogs/*\n")
+    lf(out / "logs" / ".keep", "")   # sbatch --output=logs/... needs logs/ at submit time (desk note on LONI 149)
     lf(out / "README.md", f"""# {out.name}: GPU D3 speed-up check for the chirality production MD
 
 LONI 146: the torch-dftd socket D3 is ~85 % of each ft2 MD step. This tests the ALCHEMI toolkit's in-process Warp

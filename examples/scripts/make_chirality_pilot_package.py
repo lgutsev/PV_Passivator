@@ -125,6 +125,7 @@ def main(argv=None) -> int:
     sums += [f"{sha256(p)}  {p.relative_to(out).as_posix()}" for p in sorted((out / "inputs").rglob("*")) if p.is_file()]
     lf(out / "SHA256SUMS", "\n".join(sums) + "\n")
     lf(out / "export.list", "outputs/*\nlogs/*\n")
+    lf(out / "logs" / ".keep", "")   # sbatch --output=logs/... needs logs/ at submit time (desk note on LONI 149)
     lf(out / "README.md", f"""# {out.name}: throughput benchmark + NPT pilot for the chirality production MD
 
 Owner decision 2026-11-19: before any production request, measure the A100 cost per ps and check ft2 + D3 under MTK
