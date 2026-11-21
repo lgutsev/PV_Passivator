@@ -416,9 +416,9 @@ Smoke job 1186734 tests whether the cluster's deepmd 3.2.0 beta module loads thi
 
 **Revision 1 smoke (2026-11-20, job 1195003, A100 80 GB, deepmd 3.2.0 release venv, torch 2.11.0+cu126): passed.** A first attempt (job 1190328) died at import because the node's default Intel-MPI library path broke the venv's MPI; the desk now purges modules and unsets `LD_LIBRARY_PATH` before activating (ported to the generator).
 - Zero-shot (no fine-tune), all frames finite: force RMSE 0.127 eV/Å on the molecule, 0.13 eV/Å on the 567–597-atom cells (all atoms); a constant energy offset of about 6.5 keV per frame (reference shift); relative energies within a composition 0.07–0.20 eV MAE.
-- 100 fine-tune steps on fold 0 (learning rate 1e-4 to 1e-6 within those steps), then fold 0's held-out test frames: force RMSE over all atoms 0.020 eV/Å on the eight two-melamine frames (round-3 MACE, same fold: 0.013), relative energy MAE 0.131 eV (round-3 MACE: 0.040). A short run, so not the comparison; it shows the fine-tune moves the model fast.
+- 100 fine-tune steps on fold 0 (learning rate 1e-4 to 1e-6 within those steps), then fold 0's held-out test frames: force RMSE over all atoms 0.020 eV/Å on the eight two-melamine frames (round-3 MACE, same fold: 0.013), relative energy MAE 0.131 eV (round-3 MACE: 0.040). A short run, so not the comparison; it shows the fine-tune moves the model fast. Near the molecules (score_dpa4_trial.py, same definition as the MACE rounds): 0.053 against 0.043 eV/Å; worst relative energy 0.30 against 0.09 eV.
 - Cost: 3.3 s per step averaged over 100 steps including a 3-minute first step; prediction 0.06 s per 597-atom frame.
-- The five folds plus the all-frames model (4,000 steps each) are not run; at the measured rate they need roughly 6–22 GPU-hours.
+- **Folds authorized by the owner on 2026-11-21** ("Yes, run the folds", 6–22 GPU-hours, cap 48) and sent to the desk. Scoring: `examples/scripts/score_dpa4_trial.py`, which reproduces the stored round-3 MACE fold numbers exactly and scores DPA-4 the same way.
 
 
 ## 9. Reproduce
