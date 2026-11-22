@@ -242,7 +242,7 @@ REL=$PWD/pretrained/DPA4-$V-OMat24-__VERSION__.json
 [ -s "$CKPT" ] && [ -s "$REL" ] || { echo "run fetch_pretrained.sh on a login node first" >&2; exit 2; }
 ( cd pretrained && sha256sum -c --quiet SHA256SUMS )
 sha256sum -c --quiet SHA256SUMS
-latest() { ls model.ckpt-*.pt 2>/dev/null | sed -n 's/^model\.ckpt-\([0-9]*\)\.pt$/\1 &/p' | sort -n | tail -n 1 | cut -d' ' -f2; }
+latest() { { ls model.ckpt-*.pt 2>/dev/null || true; } | sed -n 's/^model\.ckpt-\([0-9]*\)\.pt$/\1 &/p' | sort -n | tail -n 1 | cut -d' ' -f2; }
 '''
 
 SMOKE = HEAD + r'''W=outputs/smoke
